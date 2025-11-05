@@ -69,15 +69,15 @@ This is a workspace monorepo with:
 
 | Component | Purpose | Quick Ref |
 |-----------|---------|-----------|
-| [moku-models](libs/moku-models/) | **REQUIRED** - Moku platform specifications (Go/Lab/Pro/Delta) | [llms.txt](libs/moku-models/llms.txt) |
-| [riscure-models](libs/riscure-models/) | DS1120A probe specs (reference) | [llms.txt](libs/riscure-models/llms.txt) |
+| [moku-models](https://github.com/sealablab/moku-models) | **REQUIRED** - Moku platform specifications (Go/Lab/Pro/Delta) | [llms.txt](https://github.com/sealablab/moku-models/blob/main/llms.txt) |
+| [riscure-models](https://github.com/sealablab/riscure-models) | DS1120A probe specs (reference) | [llms.txt](https://github.com/sealablab/riscure-models/blob/main/llms.txt) |
 
 ### VHDL Development Tools (git submodules - upstream dependencies)
 
 | Component | Purpose | Quick Ref |
 |-----------|---------|-----------|
-| [forge-codegen](tools/forge-codegen/) | YAML → VHDL code generator (23-type system) | [llms.txt](tools/forge-codegen/llms.txt) |
-| [forge-vhdl](libs/forge-vhdl/) | Reusable VHDL components + voltage utilities | [llms.txt](libs/forge-vhdl/llms.txt) |
+| [forge-codegen](https://github.com/sealablab/moku-instrument-forge-codegen) | YAML → VHDL code generator (23-type system) | [llms.txt](https://github.com/sealablab/moku-instrument-forge-codegen/blob/main/llms.txt) |
+| [forge-vhdl](https://github.com/sealablab/moku-instrument-forge-vhdl) | Reusable VHDL components + voltage utilities | [llms.txt](https://github.com/sealablab/moku-instrument-forge-vhdl/blob/main/llms.txt) |
 
 Each component follows a **three-tier documentation pattern**: `llms.txt` → `CLAUDE.md` → source code
 
@@ -85,22 +85,22 @@ Each component follows a **three-tier documentation pattern**: `llms.txt` → `C
 
 This repository uses **Progressive Disclosure Architecture (PDA)** for token-efficient navigation. The four authoritative sources (in git submodules) are:
 
-1. **libs/moku-models/llms.txt** - Moku platform specifications (Go/Lab/Pro/Delta)
+1. **[moku-models/llms.txt](https://github.com/sealablab/moku-models/blob/main/llms.txt)** - Moku platform specifications (Go/Lab/Pro/Delta)
    - Clock frequencies, voltage ranges, I/O configurations
    - Platform constants: `MOKU_GO_PLATFORM`, `MOKU_LAB_PLATFORM`, `MOKU_PRO_PLATFORM`, `MOKU_DELTA_PLATFORM`
    - Deployment configuration models (`MokuConfig`, `SlotConfig`, `MokuConnection`)
 
-2. **libs/riscure-models/llms.txt** - DS1120A probe specifications
+2. **[riscure-models/llms.txt](https://github.com/sealablab/riscure-models/blob/main/llms.txt)** - DS1120A probe specifications
    - Electrical specifications for Riscure FI/SCA probes
    - Voltage-safe wiring validation patterns
    - Platform constant: `DS1120A_PLATFORM` (450V, 64A, fixed 50ns pulse)
 
-3. **libs/forge-vhdl/llms.txt** - VHDL utilities and components
+3. **[forge-vhdl/llms.txt](https://github.com/sealablab/moku-instrument-forge-vhdl/blob/main/llms.txt)** - VHDL utilities and components
    - Reusable VHDL packages (voltage domains, LUTs, clock dividers)
    - CocoTB progressive testing infrastructure
    - Three voltage domains: 3.3V, 5V, ±5V
 
-4. **tools/forge-codegen/llms.txt** - YAML → VHDL code generator
+4. **[forge-codegen/llms.txt](https://github.com/sealablab/moku-instrument-forge-codegen/blob/main/llms.txt)** - YAML → VHDL code generator
    - 23-type system with automatic register packing
    - Type-safe register serialization (50-75% register space savings)
    - Entry point: `python -m forge_codegen.generator.codegen spec.yaml`
@@ -205,10 +205,10 @@ This repository uses a **three-tier documentation pattern** optimized for effici
 - `bpd/bpd-vhdl/llms.txt` - VHDL probe interface
 
 **Upstream Libraries:**
-- `tools/forge-codegen/llms.txt` - YAML → VHDL generation
-- `libs/forge-vhdl/llms.txt` - VHDL utilities
-- `libs/moku-models/llms.txt` - Moku platform specs
-- `libs/riscure-models/llms.txt` - DS1120A probe specs
+- [forge-codegen/llms.txt](https://github.com/sealablab/moku-instrument-forge-codegen/blob/main/llms.txt) - YAML → VHDL generation
+- [forge-vhdl/llms.txt](https://github.com/sealablab/moku-instrument-forge-vhdl/blob/main/llms.txt) - VHDL utilities
+- [moku-models/llms.txt](https://github.com/sealablab/moku-models/blob/main/llms.txt) - Moku platform specs
+- [riscure-models/llms.txt](https://github.com/sealablab/riscure-models/blob/main/llms.txt) - DS1120A probe specs
 
 ### Tier 2: Deep Context (Load when designing/integrating)
 - **Files:** `CLAUDE.md` files (~3-5k tokens each)
@@ -294,10 +294,10 @@ git push
 - **BPD VHDL:** [bpd/bpd-vhdl/llms.txt](bpd/bpd-vhdl/llms.txt) | [CLAUDE.md](bpd/bpd-vhdl/CLAUDE.md)
 
 ### Submodule Context
-- **forge-codegen:** [llms.txt](tools/forge-codegen/llms.txt) | [CLAUDE.md](tools/forge-codegen/CLAUDE.md)
-- **forge-vhdl:** [llms.txt](libs/forge-vhdl/llms.txt) | [CLAUDE.md](libs/forge-vhdl/CLAUDE.md)
-- **moku-models:** [llms.txt](libs/moku-models/llms.txt) | [CLAUDE.md](libs/moku-models/CLAUDE.md)
-- **riscure-models:** [llms.txt](libs/riscure-models/llms.txt) | [CLAUDE.md](libs/riscure-models/CLAUDE.md)
+- **forge-codegen:** [llms.txt](https://github.com/sealablab/moku-instrument-forge-codegen/blob/main/llms.txt) | [CLAUDE.md](https://github.com/sealablab/moku-instrument-forge-codegen/blob/main/CLAUDE.md)
+- **forge-vhdl:** [llms.txt](https://github.com/sealablab/moku-instrument-forge-vhdl/blob/main/llms.txt) | [CLAUDE.md](https://github.com/sealablab/moku-instrument-forge-vhdl/blob/main/CLAUDE.md)
+- **moku-models:** [llms.txt](https://github.com/sealablab/moku-models/blob/main/llms.txt) | [CLAUDE.md](https://github.com/sealablab/moku-models/blob/main/CLAUDE.md)
+- **riscure-models:** [llms.txt](https://github.com/sealablab/riscure-models/blob/main/llms.txt) | [CLAUDE.md](https://github.com/sealablab/riscure-models/blob/main/CLAUDE.md)
 
 ## Current Status
 
