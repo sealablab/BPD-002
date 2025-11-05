@@ -472,6 +472,174 @@ Created complete Python implementation:
 
 ---
 
-**Next Kink ID:** #4
+### 🟡 KINK #4: Claude Code Web Sandbox Branch Isolation (WORKFLOW)
+
+**Discovered:** 2025-11-05 (During P1 git push attempt)
+
+**Problem:**
+Claude Code web edition uses a **sandbox git proxy** that enforces branch naming conventions. This caused confusion when trying to push commits from the "natural" session branch.
+
+**Symptoms:**
+- User created branch: `session/2025-11-05-integration-testing-claude-web-ai`
+- Claude Code works on this branch fine (commits succeed)
+- `git push` fails with **HTTP 403 error**
+- Confusing because branch exists on remote
+
+**Root Cause:**
+Claude Code web sandbox creates an **isolation layer** for safety:
+- Sandbox allows only branches matching pattern: `claude/<name>-<session_id>`
+- Session ID is auto-generated (e.g., `011CUq6RLYd9Bum3CJ6SbCyL`)
+- User-created branches (e.g., `session/*`) can't push directly
+- Remote proxy at `127.0.0.1:<port>` enforces this
+
+**The Sandbox Setup:**
+```
+User's GitHub Repo (sealablab/BPD-002)
+          ↓ (cloned into sandbox)
+Local Proxy (127.0.0.1:<port>/git/sealablab/BPD-002)
+          ↓ (branch filtering)
+Claude's Workspace
+   - Can read: any branch
+   - Can commit: any local branch
+   - Can push: ONLY claude/<name>-<session_id>
+```
+
+**What We Encountered:**
+
+1. **User's Intent:**
+   - Work on `session/2025-11-05-integration-testing-claude-web-ai`
+   - This branch has all the planning docs and context
+   - Natural choice for the session
+
+2. **Sandbox Reality:**
+   - Sandbox **also** created `claude/integration-testing-web-ai-011CUq6RLYd9Bum3CJ6SbCyL`
+   - Claude can read/work on ANY branch
+   - But can only **push** to the `claude/` branch
+
+3. **Initial Attempt:**
+   ```bash
+   git push -u origin session/2025-11-05-integration-testing-claude-web-ai
+   # ERROR: HTTP 403
+   ```
+
+4. **The Fix:**
+   ```bash
+   # Switch to the claude/ branch
+   git checkout claude/integration-testing-web-ai-011CUq6RLYd9Bum3CJ6SbCyL
+
+   # Cherry-pick commits from session branch
+   git cherry-pick f1610c5 c8bea21
+
+   # Now push succeeds
+   git push -u origin claude/integration-testing-web-ai-011CUq6RLYd9Bum3CJ6SbCyL
+   # ✓ SUCCESS
+   ```
+
+**Workflow Implications:**
+
+⚠️ **For Users (Outside World):**
+
+**Strategy 1: Work on session branch, sync later (RECOMMENDED)**
+- Let Claude work on your meaningful branch (`session/*`, `feature/*`, etc.)
+- Commits happen locally on that branch
+- At end of session: **YOU** handle merging to main/desired branch
+- Pros: Clean history, meaningful branch names
+- Cons: User must manually handle git after session
+
+**Strategy 2: Accept the claude/ branch**
+- Let Claude work directly on `claude/<name>-<session_id>`
+- Commits auto-push during session
+- After session: merge `claude/*` branch to main
+- Pros: Auto-push works, no manual git
+- Cons: Opaque branch names, harder to track history
+
+**Strategy 3: Hybrid approach (what we did)**
+- Claude works on meaningful branch locally
+- At completion points, cherry-pick to `claude/` branch
+- Push the `claude/` branch for backup
+- User later merges from meaningful branch
+- Pros: Best of both worlds
+- Cons: Some manual git juggling
+
+⚠️ **For Claude (AI Agents):**
+
+**Detection:**
+When `git push` fails with 403:
+1. Check current branch name
+2. Look for `claude/<name>-<session_id>` branch
+3. Switch to that branch
+4. Cherry-pick recent commits
+5. Retry push
+
+**Better pattern:**
+```bash
+# At session start, detect the situation
+CURRENT_BRANCH=$(git branch --show-current)
+CLAUDE_BRANCH=$(git branch -a | grep 'claude/.*-[A-Za-z0-9]\{24\}$' | head -1 | sed 's/.*\///')
+
+if [[ "$CURRENT_BRANCH" != "$CLAUDE_BRANCH" ]]; then
+    echo "⚠️  Working on $CURRENT_BRANCH but can only push to $CLAUDE_BRANCH"
+    echo "Strategy: Commit locally, cherry-pick to $CLAUDE_BRANCH for push"
+fi
+```
+
+**Documentation Pattern:**
+```markdown
+## Git Workflow Note (Claude Code Web Edition)
+
+This session uses Claude Code web sandbox, which isolates pushes to:
+- Branch: `claude/integration-testing-web-ai-011CUq6RLYd9Bum3CJ6SbCyL`
+
+Work happens on: `session/2025-11-05-integration-testing-claude-web-ai`
+Commits synced to `claude/` branch for pushing.
+
+After session, user should merge from session branch (cleaner history).
+```
+
+**Why This Design Makes Sense:**
+
+1. **Safety:** Prevents Claude from pushing to `main` or other critical branches
+2. **Isolation:** Each session gets unique branch, easy to track/rollback
+3. **Audit Trail:** Session ID in branch name enables tracking
+4. **Collaboration:** Multiple concurrent sessions won't conflict
+
+**However, it creates UX friction:**
+- Branch names are opaque (session ID not meaningful)
+- Users must understand the isolation model
+- Extra git commands needed (cherry-pick, merge)
+
+**Recommendation for Future:**
+
+**For Repository Setup:**
+Add to repository root: `.claude-code/README.md`
+```markdown
+## Working with Claude Code Web Edition
+
+This repo may be accessed by Claude Code web sandbox.
+
+### Branch Naming
+- Sandbox pushes to: `claude/<name>-<session_id>`
+- Session IDs are auto-generated (24 char alphanumeric)
+
+### After Claude Session
+1. Review commits on `claude/<name>-<session_id>` branch
+2. Merge to main or feature branch as appropriate
+3. Delete `claude/` branch after merge (or keep for audit)
+
+### Branch Cleanup
+```bash
+# List all claude/ branches
+git branch -r | grep claude/
+
+# Delete merged claude/ branches
+git push origin --delete claude/<name>-<session_id>
+```
+```
+
+**Status:** ✅ WORKAROUND FOUND - Documented for future sessions
+
+---
+
+**Next Kink ID:** #5
 **Status:** Active - P1 complete, ready for P2 (VHDL FSM implementation)
 
