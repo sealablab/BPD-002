@@ -89,6 +89,8 @@ Equip Codex with a reusable navigation routine that mirrors the Progressive Disc
 2. Maintain a scratchpad of assumptions; validate them by citing file+line references.
 3. Use `.claude/agents/` prompts for orchestration patterns if coordination is required.
 
+> **Workflow companion:** See `.claude/workflows/codex-session-bootstrap.md` for a step-by-step session checklist.
+
 ---
 
 ## Communication Expectations
