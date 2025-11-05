@@ -1,0 +1,166 @@
+==================================
+🔍 Sandbox Environment Reconnaissance
+==================================
+
+📋 1. BASIC SYSTEM INFO
+-----------------------------------
+Hostname: runsc
+Username: root
+User ID: 0
+Home Dir: /root
+Working Dir: /home/user/BPD-002
+
+🐧 2. OPERATING SYSTEM
+-----------------------------------
+Kernel: Linux
+Kernel Version: 4.4.0
+Machine: x86_64
+OS: GNU/Linux
+
+OS Release Info:
+PRETTY_NAME="Ubuntu 24.04.3 LTS"
+NAME="Ubuntu"
+VERSION_ID="24.04"
+VERSION="24.04.3 LTS (Noble Numbat)"
+VERSION_CODENAME=noble
+ID=ubuntu
+ID_LIKE=debian
+HOME_URL="https://www.ubuntu.com/"
+SUPPORT_URL="https://help.ubuntu.com/"
+BUG_REPORT_URL="https://bugs.launchpad.net/ubuntu/"
+PRIVACY_POLICY_URL="https://www.ubuntu.com/legal/terms-and-policies/privacy-policy"
+UBUNTU_CODENAME=noble
+LOGO=ubuntu-logo
+
+📦 3. PACKAGE MANAGERS
+-----------------------------------
+✓ apt-get: /usr/bin/apt-get
+✓ apt: /usr/bin/apt
+✗ yum: not found
+✗ dnf: not found
+✗ brew: not found
+✗ apk: not found
+✗ snap: not found
+
+🔐 4. SUDO / PERMISSIONS
+-----------------------------------
+✓ sudo available: /usr/bin/sudo
+  sudo version: Sudo version 1.9.15p5
+  sudo access test: ✗ requires password or denied
+Root access: ✓ RUNNING AS ROOT
+
+🔍 5. GHDL INVESTIGATION
+-----------------------------------
+✗ GHDL not found in PATH
+
+  Searching for ghdl binaries...
+
+  Checking available GHDL packages...
+    APT packages:
+      ghdl - VHDL compiler/simulator
+      ghdl-common - VHDL compiler/simulator (common files)
+      ghdl-gcc - VHDL compiler/simulator (GCC backend)
+      ghdl-llvm - VHDL compiler/simulator (LLVM backend)
+      ghdl-mcode - VHDL compiler/simulator (mcode backend)
+      ghdl-tools - VHDL compiler/simulator (tools)
+      libghdl-4-1-0 - VHDL compiler/simulator (shared library)
+      libghdl-dev - VHDL compiler/simulator (library development files)
+      yosys-plugin-ghdl - VHDL to RTL synthesis plugin using GHDL
+
+🛠️  6. DEVELOPMENT TOOLS
+-----------------------------------
+✓ gcc: gcc (Ubuntu 13.3.0-6ubuntu2~24.04) 13.3.0
+✓ g++: g++ (Ubuntu 13.3.0-6ubuntu2~24.04) 13.3.0
+✓ clang: Ubuntu clang version 18.1.3 (1ubuntu1)
+✓ llvm-config: 18.1.3
+✓ python3: Python 3.11.14
+✓ git: git version 2.43.0
+✓ make: GNU Make 4.3
+
+🌐 7. NETWORK / INTERNET
+-----------------------------------
+Internet access: ✓ HTTP works (ping blocked)
+DNS resolution: ✗ failed
+
+💾 8. DISK / STORAGE
+-----------------------------------
+Disk usage:
+  Filesystem      Size  Used Avail Use% Mounted on
+  none            9.8G  4.5M  9.3G   1% /
+
+Available space in current dir:
+  9.3G available
+
+📦 9. CONTAINER / VIRTUALIZATION DETECTION
+-----------------------------------
+✓ Docker container detected (/.dockerenv exists)
+
+🔒 10. SANDBOX CONSTRAINTS
+-----------------------------------
+Testing write permissions...
+  ✓ /tmp writable
+Testing network tools...
+  ✓ curl available
+  ✓ wget available
+
+🔧 11. KEY ENVIRONMENT VARIABLES
+-----------------------------------
+PATH:
+  /root/.local/bin
+  /root/.cargo/bin
+  /usr/local/go/bin
+  /opt/node22/bin
+  /opt/maven/bin
+  /opt/gradle/bin
+  /opt/rbenv/bin
+  /usr/local/sbin
+  /usr/local/bin
+  /usr/sbin
+  /usr/bin
+  /sbin
+  /bin
+
+Selected vars:
+  HOME=/root
+  USER=
+  SHELL=/bin/bash
+  TERM=dumb
+
+🧪 12. GHDL INSTALLATION DRY-RUN
+-----------------------------------
+Testing apt-get access...
+  Update repos (dry-run):
+    sudo: /etc/sudo.conf is owned by uid 999, should be 0
+    sudo: /etc/sudo.conf is owned by uid 999, should be 0
+    sudo: /etc/sudoers is owned by uid 999, should be 0
+    sudo: error initializing audit plugin sudoers_audit
+
+  GHDL package info:
+    Package: ghdl-llvm
+    Version: 4.1.0+dfsg-0ubuntu2.1
+    Description: VHDL compiler/simulator (LLVM backend)
+    Package: ghdl-llvm
+    Version: 4.1.0+dfsg-0ubuntu2
+    Description: VHDL compiler/simulator (LLVM backend)
+
+==================================
+📊 SUMMARY
+==================================
+
+System: Ubuntu 24.04.3 LTS
+Package Manager: 
+  - apt-get (Debian/Ubuntu)
+
+GHDL Status: 
+  ❌ NOT INSTALLED
+
+  Recommended installation command:
+    (sudo access needed - run: apt-get install ghdl-llvm)
+
+Sudo Access: 
+  ❌ NO PASSWORDLESS SUDO
+
+==================================
+Reconnaissance complete!
+Save this output for debugging.
+==================================
