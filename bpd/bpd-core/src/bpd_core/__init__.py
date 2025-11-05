@@ -8,6 +8,7 @@ probe drivers that work across multiple FI probe vendors.
 from bpd_core.interface import FIProbeInterface, ProbeCapabilities
 from bpd_core.registry import ProbeRegistry, register_driver
 from bpd_core.validation import validate_probe_moku_compatibility
+from bpd_core.registers import BasicProbeDriverRegisters
 
 __version__ = "0.1.0"
 
@@ -17,4 +18,5 @@ __all__ = [
     "ProbeRegistry",
     "register_driver",
     "validate_probe_moku_compatibility",
+    "BasicProbeDriverRegisters",
 ]
