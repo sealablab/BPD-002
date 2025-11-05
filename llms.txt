@@ -1,0 +1,266 @@
+# BPD-002 - Basic Probe Driver
+
+> Multi-vendor fault injection probe integration for Moku platform
+
+## What is this?
+
+**BPD-002** is a complete probe driver framework for integrating fault injection probes (EMFI, laser FI, RF, voltage glitching) with Moku FPGA platforms (Go/Lab/Pro/Delta). Uses composable git submodules for: type system → code generation → VHDL implementation → hardware deployment.
+
+**Current Status:** v0.1.0 - DS1120A EMFI reference implementation complete
+
+**Key Innovation:** Vendor-agnostic Python + VHDL architecture enables writing probe drivers once and using them across multiple probe types
+
+**Key insight:** Tiered documentation with submodule delegation enables focused context loading.
+
+**Architecture:** v2.0.0 - Clean separation between tools and foundational libraries (flat structure)
+
+**For AI Agents:** See [.claude/shared/CONTEXT_MANAGEMENT.md](.claude/shared/CONTEXT_MANAGEMENT.md) for complete token optimization strategy. Load minimally (llms.txt first), expand as needed (CLAUDE.md for design, source for implementation). This keeps 95% of your token budget available for actual work.
+
+## Repository Structure
+
+### BPD Application (This Project)
+
+| Component | Purpose | Quick Ref |
+|-----------|---------|-----------|
+| [bpd-core](bpd/bpd-core/) | Generic probe driver framework (Python) | [llms.txt](bpd/bpd-core/llms.txt) |
+| [bpd-drivers](bpd/bpd-drivers/) | Probe-specific drivers (DS1120A + planned) | [llms.txt](bpd/bpd-drivers/llms.txt) |
+| [bpd-vhdl](bpd/bpd-vhdl/) | Vendor-agnostic VHDL probe interface | [llms.txt](bpd/bpd-vhdl/llms.txt) |
+
+### Core Platform (git submodules - upstream dependencies)
+
+| Component | Purpose | Quick Ref |
+|-----------|---------|-----------|
+| [moku-models](libs/moku-models/) | **REQUIRED** - Moku platform specifications (Go/Lab/Pro/Delta) | [llms.txt](libs/moku-models/llms.txt) |
+| [riscure-models](libs/riscure-models/) | DS1120A probe specs (reference) | [llms.txt](libs/riscure-models/llms.txt) |
+
+### VHDL Development Tools (git submodules - upstream dependencies)
+
+| Component | Purpose | Quick Ref |
+|-----------|---------|-----------|
+| [forge-codegen](tools/forge-codegen/) | YAML → VHDL code generator (23-type system) | [llms.txt](tools/forge-codegen/llms.txt) |
+| [forge-vhdl](libs/forge-vhdl/) | Reusable VHDL components + voltage utilities | [llms.txt](libs/forge-vhdl/llms.txt) |
+
+**Internal to forge-codegen:**
+- `basic_serialized_datatypes/` - 23-type system (voltage/time/boolean) with automatic register packing
+- Not a separate library, tightly coupled serialization internals
+
+**Design Philosophy:**
+- forge-vhdl: Practical VHDL utilities (3 voltage domains: 3.3V, 5V, ±5V)
+- forge-codegen: Comprehensive code generation (23 types, auto register packing)
+- Clean separation of concerns
+
+**Voltage Type System:** Function-based voltage domain safety
+- Design: [docs/migration/VOLTAGE_TYPE_SYSTEM_DESIGN.md](docs/migration/VOLTAGE_TYPE_SYSTEM_DESIGN.md)
+- Python reference: [docs/migration/voltage_types_reference.py](docs/migration/voltage_types_reference.py)
+
+## Common Workflows
+
+### BPD Development Workflows
+
+#### Create New Probe Driver
+**Task:** "Add laser FI probe support"
+**→ Read:** [bpd/bpd-drivers/llms.txt](bpd/bpd-drivers/llms.txt)
+**→ Deep dive:** [bpd/bpd-drivers/CLAUDE.md](bpd/bpd-drivers/CLAUDE.md)
+
+#### Validate Probe with Moku
+**Task:** "Check if probe voltage compatible with Moku Go"
+**→ Read:** [bpd/bpd-core/llms.txt](bpd/bpd-core/llms.txt)
+**→ Function:** `validate_probe_moku_compatibility()`
+
+#### Integrate VHDL Interface
+**Task:** "Add FI probe control to Moku instrument"
+**→ Read:** [bpd/bpd-vhdl/llms.txt](bpd/bpd-vhdl/llms.txt)
+**→ Component:** `fi_probe_interface.vhd`
+
+#### Configure DS1120A Driver
+**Task:** "Setup DS1120A EMFI probe"
+**→ Read:** [bpd/bpd-drivers/llms.txt](bpd/bpd-drivers/llms.txt)
+**→ Example:** DS1120A basic usage
+
+### Upstream Library Workflows
+
+#### Type System Lookup
+**Task:** "What voltage types are available?"
+**→ Read:** [tools/forge-codegen/llms.txt](tools/forge-codegen/llms.txt) (section: "Basic Usage" → Type System)
+
+#### Platform Specs Lookup
+**Task:** "What's Moku:Go clock frequency?"
+**→ Read:** [libs/moku-models/llms.txt](libs/moku-models/llms.txt)
+
+#### Code Generation
+**Task:** "Generate VHDL from YAML spec"
+**→ Read:** [tools/forge-codegen/llms.txt](tools/forge-codegen/llms.txt)
+**→ Entry point:** `python -m forge_codegen.generator.codegen spec.yaml`
+
+#### VHDL Component Usage
+**Task:** "Use clock divider or voltage packages"
+**→ Read:** [libs/forge-vhdl/llms.txt](libs/forge-vhdl/llms.txt)
+
+#### Platform Validation
+**Task:** "Validate deployment config"
+**→ Read:** [libs/moku-models/llms.txt](libs/moku-models/llms.txt)
+
+#### Voltage Safety Checking
+**Task:** "Validate probe wiring compatibility"
+**→ Read:** [libs/moku-models/llms.txt](libs/moku-models/llms.txt) + [libs/riscure-models/llms.txt](libs/riscure-models/llms.txt)
+
+## Tiered Context Loading Strategy
+
+### Tier 1: Quick Reference (Always load first)
+**Files:** All llms.txt files (~150-200 lines each)
+**Purpose:** Essential facts, API surface, common tasks
+**When:** Every interaction - minimal token cost (~500-1000 tokens each)
+
+**BPD Components (load first for BPD development):**
+- bpd/bpd-core/llms.txt - Generic probe framework
+- bpd/bpd-drivers/llms.txt - Probe-specific drivers
+- bpd/bpd-vhdl/llms.txt - VHDL probe interface
+
+**Upstream Libraries (load as needed):**
+- tools/forge-codegen/llms.txt - YAML → VHDL generation
+- libs/forge-vhdl/llms.txt - VHDL utilities
+- libs/moku-models/llms.txt - Moku platform specs
+- libs/riscure-models/llms.txt - DS1120A probe specs
+
+### Tier 2: Deep Context (Load when designing/integrating)
+**Files:** CLAUDE.md files (~3-5k tokens each)
+**Purpose:** Design rationale, integration patterns, development workflows
+**When:** Designing new features, understanding architecture
+
+**BPD Deep Dives:**
+- bpd/bpd-core/CLAUDE.md - Framework architecture, protocol design
+- bpd/bpd-drivers/CLAUDE.md - Driver development guide, DS1120A reference
+- bpd/bpd-vhdl/CLAUDE.md - FSM design, timing, multi-probe support
+
+**Upstream Deep Dives:**
+- tools/forge-codegen/CLAUDE.md - Code generation internals
+- libs/forge-vhdl/CLAUDE.md - VHDL design patterns, testing standards
+- libs/moku-models/CLAUDE.md - Platform integration
+- libs/riscure-models/CLAUDE.md - Probe specifications
+
+### Tier 3: Implementation (Load when modifying code)
+**Files:** Agent prompts, source code, tests, specialized docs
+**Purpose:** Detailed implementation logic
+**When:** Actually writing/modifying code
+
+**Load selectively:**
+- .claude/agents/*/agent.md (monorepo orchestration agents)
+- tools/forge-codegen/docs/ (detailed guides, references)
+- Source files in specific submodules
+- Test files for validation
+
+## For AI Agents
+
+### Context Decision Tree
+
+**Question type** → **Load strategy**
+
+"What types exist?" → Tier 1: tools/forge-codegen/llms.txt
+
+"How do I add a new type?" → Tier 2: tools/forge-codegen/CLAUDE.md
+
+"Generate VHDL from YAML" → Tier 1: tools/forge-codegen/llms.txt
+
+"Use VHDL components" → Tier 1: libs/forge-vhdl/llms.txt
+
+"Platform compatibility?" → Tier 1: libs/moku-models/llms.txt
+
+"Probe voltage safety?" → Tier 1: libs/moku-models/llms.txt + libs/riscure-models/llms.txt
+
+### Authoritative Sources
+
+**Always trust these libraries:**
+- Type definitions → tools/forge-codegen (23 types internally, no guessing!)
+- Platform specs → libs/moku-models (Go/Lab/Pro/Delta hardware specs)
+- Probe specs → libs/riscure-models (DS1120A voltage ranges)
+- VHDL utilities → libs/forge-vhdl (3 voltage domains, CocoTB tested)
+
+**Never:**
+- Infer types that don't exist
+- Guess platform clock frequencies
+- Assume voltage compatibility without validation
+- Use enums for FSM states (Verilog incompatible!)
+
+### Agent Delegation
+
+**Monorepo-level coordination (.claude/):**
+- deployment-orchestrator - Hardware deployment workflows
+- hardware-debug - FSM debugging expertise
+- probe-design-orchestrator - Multi-stage workflows
+
+**Delegation principle:**
+- Monorepo agents coordinate
+- Submodule work happens within submodules
+- Clear boundaries, no duplication
+
+## Key Design Principles
+
+1. **Clean Separation (v2.0)** - tools/ vs libs/ (no nested submodules)
+2. **Tiered docs** - llms.txt (quick ref) → CLAUDE.md (deep dive) → source
+3. **Agent delegation** - Monorepo coordinates, submodules execute
+4. **Single source of truth** - Each submodule is authoritative for its domain
+5. **Context efficiency** - Load minimally, expand as needed
+6. **Type safety throughout** - Pydantic validation, voltage domain safety
+
+## Development Notes
+
+### Git Submodule Workflow
+
+```bash
+# Initialize all submodules
+git submodule update --init --recursive
+
+# Update specific submodule
+cd libs/moku-models
+git pull origin main
+cd ../..
+git add libs/moku-models
+git commit -m "Update moku-models submodule"
+
+# Push both submodule and parent
+git push
+```
+
+### Quick Start
+
+```bash
+# Clone with submodules
+git clone --recurse-submodules https://github.com/sealablab/BPD-002.git
+cd BPD-002
+
+# Setup Python environment
+uv sync
+
+# Install BPD packages
+cd bpd/bpd-core && uv pip install -e . && cd ../..
+cd bpd/bpd-drivers && uv pip install -e . && cd ../..
+cd bpd/bpd-vhdl && uv pip install -e . && cd ../..
+
+# Run tests
+pytest
+```
+
+## Quick Links
+
+### Documentation
+- **Architecture overview:** [.claude/shared/ARCHITECTURE_OVERVIEW.md](.claude/shared/ARCHITECTURE_OVERVIEW.md) (v2.0)
+- **Migration history:** [ARCHITECTURE_V2_COMPLETE.md](ARCHITECTURE_V2_COMPLETE.md)
+- **Workflow guide:** [WORKFLOW_GUIDE.md](WORKFLOW_GUIDE.md)
+- **Voltage type system:** [docs/migration/VOLTAGE_TYPE_SYSTEM_DESIGN.md](docs/migration/VOLTAGE_TYPE_SYSTEM_DESIGN.md)
+
+### Agents
+- **Monorepo agents:** [.claude/agents/](.claude/agents/) (deployment, hardware-debug, probe-design)
+
+### Submodule Context
+- **forge-codegen:** [llms.txt](tools/forge-codegen/llms.txt) | [CLAUDE.md](tools/forge-codegen/CLAUDE.md)
+- **forge-vhdl:** [llms.txt](libs/forge-vhdl/llms.txt) | [CLAUDE.md](libs/forge-vhdl/CLAUDE.md)
+- **moku-models:** [llms.txt](libs/moku-models/llms.txt) | [CLAUDE.md](libs/moku-models/CLAUDE.md)
+- **riscure-models:** [llms.txt](libs/riscure-models/llms.txt) | [CLAUDE.md](libs/riscure-models/CLAUDE.md)
+
+---
+
+**Version:** v2.0.0
+**Last Updated:** 2025-11-04
+**Architecture:** Clean separation (tools + flat libs)
+**Main Branch:** main
+**License:** MIT

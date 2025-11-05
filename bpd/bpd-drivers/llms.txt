@@ -1,0 +1,330 @@
+# bpd-drivers
+
+> Probe-specific driver implementations for BPD framework
+
+## What is this?
+
+Collection of fault injection probe drivers, each implementing the `FIProbeInterface` protocol from bpd-core. Currently includes DS1120A (EMFI) reference implementation, with support for laser FI, RF injection, and voltage glitching planned.
+
+**Key Pattern:** All drivers implement same interface → easy probe swapping without code changes.
+
+## Available Drivers
+
+### DS1120A - Riscure EMFI Probe (Reference Implementation)
+
+**Status:** ✅ Production-ready (v0.1.0)
+
+**Hardware:** High-power unidirectional electromagnetic fault injection
+- Pulse width: 50ns (fixed, hardware limitation)
+- Voltage: 0-3.3V control input
+- Power: 24-450V external PSU
+- Probe tips: Interchangeable 1.5mm/4mm variants
+
+**Specifications from:** `riscure-models` library (DS1120A_PLATFORM)
+
+**Usage:**
+```python
+from bpd_drivers import DS1120ADriver
+
+driver = DS1120ADriver()
+driver.initialize()
+
+# Configure
+driver.set_voltage(3.3)  # Trigger threshold
+driver.set_pulse_width(50)  # Fixed at 50ns for DS1120A
+
+# Operate
+driver.arm()
+driver.trigger()
+driver.disarm()
+```
+
+**Integration points:**
+- Uses `riscure-models.DS1120A_PLATFORM` for electrical specs
+- Validates against `moku-models` platforms
+- Auto-registers with `@register_driver("ds1120a")`
+
+### Future Drivers (Planned)
+
+**Laser FI** - 🚧 Planned
+- Optical fault injection
+- Variable pulse width (1-1000ns)
+- Focus control
+
+**RF Injection** - 🚧 Planned
+- Radio frequency fault injection
+- Frequency sweep capability
+- Amplitude control
+
+**Voltage Glitching** - 🚧 Planned
+- Power supply glitching
+- Sub-nanosecond pulses
+- Programmable patterns
+
+## Basic Usage
+
+### Using DS1120A Driver
+
+```python
+from bpd_drivers import DS1120ADriver
+from bpd_core import validate_probe_moku_compatibility
+from moku_models import MOKU_GO_PLATFORM
+
+# Initialize driver
+driver = DS1120ADriver()
+driver.initialize()
+
+# Validate voltage safety with Moku platform
+validate_probe_moku_compatibility(driver, MOKU_GO_PLATFORM, output_id="OUT1")
+
+# Configure probe
+driver.set_voltage(3.3)  # Trigger voltage (0-3.3V for DS1120A)
+driver.set_pulse_width(50)  # DS1120A is fixed at 50ns
+
+# Arm and trigger
+driver.arm()
+print(f"Ready: {driver.get_status().ready}")
+
+# Trigger fault injection
+driver.trigger()
+
+# Disarm when done
+driver.disarm()
+
+# Shutdown cleanly
+driver.shutdown()
+```
+
+### Query Driver Capabilities
+
+```python
+from bpd_drivers import DS1120ADriver
+
+driver = DS1120ADriver()
+caps = driver.capabilities
+
+print(f"Voltage: {caps.min_voltage_v}V - {caps.max_voltage_v}V")
+print(f"Pulse width: {caps.min_pulse_width_ns}ns - {caps.max_pulse_width_ns}ns")
+print(f"External trigger: {caps.supports_external_trigger}")
+print(f"Internal trigger: {caps.supports_internal_trigger}")
+```
+
+### Discover Available Drivers
+
+```python
+from bpd_core import list_drivers, get_driver
+
+# List all registered drivers
+drivers = list_drivers()
+print(f"Available: {drivers}")  # ['ds1120a']
+
+# Load driver by name
+DS1120ADriver = get_driver("ds1120a")
+driver = DS1120ADriver()
+```
+
+## Common Tasks
+
+### Validate Probe with Moku Platform
+
+```python
+from bpd_core import validate_probe_moku_compatibility, ProbeValidationError
+from moku_models import MOKU_GO_PLATFORM
+
+try:
+    validate_probe_moku_compatibility(
+        probe_driver=driver,
+        platform=MOKU_GO_PLATFORM,
+        output_id="OUT1"  # Moku output to connect to probe
+    )
+    print("✓ Safe to connect Moku OUT1 → DS1120A digital_glitch")
+except ProbeValidationError as e:
+    print(f"✗ Voltage incompatibility: {e}")
+```
+
+### Switch Between Probes
+
+```python
+# Same code works for different probes!
+from bpd_core import get_driver
+
+# Load probe based on user config
+probe_name = "ds1120a"  # Or "laser_fi", "rf_inject", etc.
+DriverClass = get_driver(probe_name)
+driver = DriverClass()
+
+# Same interface regardless of probe type
+driver.initialize()
+driver.set_voltage(3.3)
+driver.arm()
+driver.trigger()
+```
+
+### Test Driver Without Hardware
+
+```python
+from bpd_drivers import DS1120ADriver
+
+# Driver works without hardware connected (simulation mode)
+driver = DS1120ADriver()
+driver.initialize()  # No hardware required for basic testing
+
+# Check capabilities
+caps = driver.capabilities
+print(f"DS1120A specs: {caps}")
+
+# Validate compatibility
+validate_probe_moku_compatibility(driver, MOKU_GO_PLATFORM)
+```
+
+## Adding New Drivers
+
+### Quick Reference
+
+```python
+# bpd/bpd-drivers/src/bpd_drivers/my_probe.py
+
+from bpd_core import FIProbeInterface, ProbeCapabilities, register_driver, ProbeStatus
+
+@register_driver("my_probe")
+class MyProbeDriver:
+    """Driver for My Probe FI Hardware."""
+
+    def __init__(self):
+        self._armed = False
+        self._voltage = 0.0
+        self._pulse_width = 0
+
+    @property
+    def capabilities(self) -> ProbeCapabilities:
+        return ProbeCapabilities(
+            min_voltage_v=0.0,
+            max_voltage_v=5.0,
+            min_pulse_width_ns=10,
+            max_pulse_width_ns=1000,
+            pulse_width_resolution_ns=1,
+            supports_external_trigger=True,
+            supports_internal_trigger=False,
+        )
+
+    def initialize(self) -> None:
+        # Initialize hardware connection
+        pass
+
+    def set_voltage(self, voltage_v: float) -> None:
+        if not (self.capabilities.min_voltage_v <= voltage_v <= self.capabilities.max_voltage_v):
+            raise ValueError(f"Voltage {voltage_v}V out of range")
+        self._voltage = voltage_v
+
+    def set_pulse_width(self, width_ns: int) -> None:
+        if not (self.capabilities.min_pulse_width_ns <= width_ns <= self.capabilities.max_pulse_width_ns):
+            raise ValueError(f"Pulse width {width_ns}ns out of range")
+        self._pulse_width = width_ns
+
+    def arm(self) -> None:
+        self._armed = True
+
+    def trigger(self) -> None:
+        if not self._armed:
+            raise RuntimeError("Probe not armed")
+        # Trigger fault injection
+        pass
+
+    def disarm(self) -> None:
+        self._armed = False
+
+    def get_status(self) -> ProbeStatus:
+        return ProbeStatus(
+            ready=not self._armed,
+            busy=False,
+            armed=self._armed,
+            fault=False
+        )
+
+    def shutdown(self) -> None:
+        self.disarm()
+```
+
+Then add to `src/bpd_drivers/__init__.py`:
+```python
+from bpd_drivers.my_probe import MyProbeDriver
+
+__all__ = ["DS1120ADriver", "MyProbeDriver"]
+```
+
+## File Structure
+
+```
+bpd-drivers/
+├── src/
+│   └── bpd_drivers/
+│       ├── __init__.py        # Public API
+│       ├── ds1120a.py         # DS1120A driver
+│       ├── laser_fi.py        # (Future) Laser FI driver
+│       └── rf_inject.py       # (Future) RF injection driver
+├── tests/
+│   ├── test_ds1120a.py        # DS1120A tests
+│   └── test_registry.py       # Auto-discovery tests
+├── pyproject.toml
+├── llms.txt                   # This file
+├── CLAUDE.md                  # Deep driver guide
+└── README.md
+```
+
+## Integration Notes
+
+**Depends on:**
+- `bpd-core` - FIProbeInterface protocol
+- `moku-models` - Platform validation
+- `riscure-models` - DS1120A specs (driver-specific)
+
+**Used by:**
+- User applications
+- `bpd-vhdl` FPGA integration (via shared probe model)
+
+**Pattern:** Each driver is self-contained, only depends on bpd-core protocol.
+
+## Design Principles
+
+1. **Protocol implementation** - All drivers implement FIProbeInterface
+2. **Self-registration** - `@register_driver()` for auto-discovery
+3. **Hardware abstraction** - Same API for different probe types
+4. **Graceful degradation** - Drivers work without hardware (simulation)
+5. **Safety validation** - Voltage checks before hardware connection
+
+## Common Workflows
+
+### Test Driver Without Hardware
+**Task:** "Validate DS1120A driver logic without probe connected"
+**→ Use:** Driver simulation mode (initialize without hardware)
+
+### Add Laser FI Probe
+**Task:** "Implement driver for new laser probe"
+**→ Read:** [CLAUDE.md](CLAUDE.md) Section "Adding New Drivers"
+**→ Reference:** Use DS1120A as reference implementation
+
+### Debug Driver Registration
+**Task:** "Driver not showing up in list_drivers()"
+**→ Check:** `@register_driver()` decorator present
+**→ Check:** Module imported in `__init__.py`
+**→ Read:** [CLAUDE.md](CLAUDE.md) Section "Registry Troubleshooting"
+
+## For More Details
+
+**Deep context:** See [CLAUDE.md](CLAUDE.md) for:
+- DS1120A driver architecture walkthrough
+- Complete guide to adding new probe types
+- Hardware integration patterns
+- Testing strategies (with/without hardware)
+- Simulation mode implementation
+- Error handling best practices
+
+**Core framework:** See [../bpd-core/CLAUDE.md](../bpd-core/CLAUDE.md)
+
+**VHDL integration:** See [../bpd-vhdl/CLAUDE.md](../bpd-vhdl/CLAUDE.md)
+
+---
+
+**Version:** 0.1.0
+**Part of:** BPD-002 (Basic Probe Driver)
+**License:** MIT

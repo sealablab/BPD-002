@@ -1,0 +1,12 @@
+[submodule "libs/forge-vhdl"]
+	path = libs/forge-vhdl
+	url = https://github.com/sealablab/moku-instrument-forge-vhdl.git
+[submodule "tools/forge-codegen"]
+	path = tools/forge-codegen
+	url = https://github.com/sealablab/moku-instrument-forge-codegen.git
+[submodule "libs/moku-models"]
+	path = libs/moku-models
+	url = https://github.com/sealablab/moku-models.git
+[submodule "libs/riscure-models"]
+	path = libs/riscure-models
+	url = https://github.com/sealablab/riscure-models.git

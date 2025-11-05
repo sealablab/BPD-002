@@ -1,0 +1,231 @@
+# bpd-core
+
+> Generic fault injection probe driver framework for Moku platform
+
+## What is this?
+
+Python framework providing vendor-agnostic interface for FI probes. Write driver once, works with EMFI, laser FI, voltage glitching, RF injection, etc.
+
+**Key Innovation:** Protocol-based design enables probe swapping without code changes.
+
+**Design Philosophy:** Generic interface inspired by DS1120A (de facto FI probe standard), extended for multi-vendor support.
+
+## Core Exports
+
+### Protocols
+- `FIProbeInterface` - Abstract interface all drivers must implement
+- `ProbeCapabilities` - Dataclass for probe hardware specifications
+
+### Registry System
+- `register_driver(name)` - Decorator for automatic driver discovery
+- `get_driver(name)` - Retrieve registered driver instance
+- `list_drivers()` - Show all available drivers
+- `ProbeRegistry` - Central driver registry (singleton)
+
+### Validation
+- `validate_probe_moku_compatibility()` - Voltage safety checking
+- `ProbeValidationError` - Exception for compatibility issues
+
+## Basic Usage
+
+### Using an Existing Driver
+
+```python
+from bpd_drivers import DS1120ADriver
+from bpd_core import validate_probe_moku_compatibility
+from moku_models import MOKU_GO_PLATFORM
+
+# Initialize driver
+driver = DS1120ADriver()
+driver.initialize()
+
+# Validate voltage safety with Moku platform
+validate_probe_moku_compatibility(driver, MOKU_GO_PLATFORM)
+
+# Configure and use
+driver.set_voltage(3.3)  # volts
+driver.set_pulse_width(100)  # nanoseconds
+driver.arm()
+driver.trigger()
+
+# Check status
+status = driver.get_status()
+print(f"Ready: {status.ready}, Busy: {status.busy}")
+```
+
+### Creating a New Driver
+
+```python
+from bpd_core import FIProbeInterface, ProbeCapabilities, register_driver
+
+@register_driver("laser_fi")
+class LaserFIDriver:
+    """Driver for laser fault injection probe."""
+
+    @property
+    def capabilities(self) -> ProbeCapabilities:
+        return ProbeCapabilities(
+            min_voltage_v=0.0,
+            max_voltage_v=5.0,
+            min_pulse_width_ns=1,
+            max_pulse_width_ns=1000,
+            pulse_width_resolution_ns=1,
+            supports_external_trigger=True,
+            supports_internal_trigger=True,
+        )
+
+    def initialize(self) -> None:
+        # Initialize laser hardware
+        pass
+
+    def set_voltage(self, voltage_v: float) -> None:
+        # Set laser power (voltage analog)
+        pass
+
+    def set_pulse_width(self, width_ns: int) -> None:
+        # Set laser pulse duration
+        pass
+
+    def arm(self) -> None:
+        # Arm laser for trigger
+        pass
+
+    def trigger(self) -> None:
+        # Fire laser pulse
+        pass
+
+    def disarm(self) -> None:
+        # Disarm laser
+        pass
+
+    def get_status(self) -> ProbeStatus:
+        # Return probe state
+        pass
+
+    def shutdown(self) -> None:
+        # Safe shutdown
+        pass
+```
+
+## Common Tasks
+
+### Query Driver Capabilities
+
+```python
+from bpd_drivers import DS1120ADriver
+
+driver = DS1120ADriver()
+caps = driver.capabilities
+
+print(f"Voltage range: {caps.min_voltage_v}V - {caps.max_voltage_v}V")
+print(f"Pulse width: {caps.min_pulse_width_ns}ns - {caps.max_pulse_width_ns}ns")
+print(f"Resolution: {caps.pulse_width_resolution_ns}ns")
+print(f"External trigger: {caps.supports_external_trigger}")
+```
+
+### Validate Voltage Safety
+
+```python
+from bpd_core import validate_probe_moku_compatibility, ProbeValidationError
+from moku_models import MOKU_GO_PLATFORM, MOKU_LAB_PLATFORM
+
+# Validate with specific Moku output
+try:
+    validate_probe_moku_compatibility(
+        probe_driver=driver,
+        platform=MOKU_GO_PLATFORM,
+        output_id="OUT1"
+    )
+    print("✓ Safe to connect")
+except ProbeValidationError as e:
+    print(f"✗ Unsafe: {e}")
+```
+
+### Discover Available Drivers
+
+```python
+from bpd_core import list_drivers, get_driver
+
+# List all registered drivers
+drivers = list_drivers()
+print(f"Available drivers: {drivers}")
+
+# Load specific driver by name
+driver_class = get_driver("ds1120a")
+driver = driver_class()
+```
+
+## Integration Notes
+
+**Depends on:**
+- `moku-models` - Platform specifications for voltage validation
+- `riscure-models` - DS1120A hardware specs (optional, driver-specific)
+
+**Used by:**
+- `bpd-drivers` - Probe-specific driver implementations
+- `bpd-vhdl` - FPGA interface uses same probe model
+
+**Integration pattern:** Protocol-based, no hard dependencies on specific probe types.
+
+## File Structure
+
+```
+bpd-core/
+├── src/
+│   └── bpd_core/
+│       ├── __init__.py       # Public API
+│       ├── interface.py      # FIProbeInterface protocol
+│       ├── registry.py       # Driver registration
+│       └── validation.py     # Moku compatibility checks
+├── tests/
+│   └── test_validation.py    # Voltage safety tests
+├── pyproject.toml
+├── llms.txt                  # This file
+├── CLAUDE.md                 # Deep architecture guide
+└── README.md
+```
+
+## Design Principles
+
+1. **Protocol over inheritance** - Duck typing for flexibility
+2. **Vendor agnostic** - No probe-specific code in core
+3. **Safety first** - Voltage validation before hardware connection
+4. **Simple registration** - Decorator-based driver discovery
+5. **Zero coupling** - Drivers don't depend on each other
+
+## Common Workflows
+
+### Add New Probe Type
+**Task:** "Add laser FI probe support"
+**→ Read:** [../bpd-drivers/llms.txt](../bpd-drivers/llms.txt)
+**→ Deep dive:** [../bpd-drivers/CLAUDE.md](../bpd-drivers/CLAUDE.md)
+
+### Validate Platform Compatibility
+**Task:** "Check if probe works with Moku Lab"
+**→ Use:** `validate_probe_moku_compatibility(driver, MOKU_LAB_PLATFORM)`
+
+### Debug Driver Issues
+**Task:** "Driver not showing up in registry"
+**→ Check:** `@register_driver()` decorator applied
+**→ Check:** Driver module imported before use
+**→ Read:** [CLAUDE.md](CLAUDE.md) Section "Registry Troubleshooting"
+
+## For More Details
+
+**Deep context:** See [CLAUDE.md](CLAUDE.md) for:
+- FIProbeInterface protocol design rationale
+- ProbeCapabilities specification details
+- Registry pattern implementation
+- Validation framework internals
+- Integration with moku-models/riscure-models
+- Adding new probe types (complete guide)
+
+**Driver development:** See [../bpd-drivers/CLAUDE.md](../bpd-drivers/CLAUDE.md)
+
+**VHDL integration:** See [../bpd-vhdl/CLAUDE.md](../bpd-vhdl/CLAUDE.md)
+
+---
+
+**Version:** 0.1.0
+**Part of:** BPD-002 (Basic Probe Driver)
+**License:** MIT

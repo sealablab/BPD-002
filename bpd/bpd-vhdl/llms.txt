@@ -1,0 +1,309 @@
+# bpd-vhdl
+
+> Vendor-agnostic VHDL components for FI probe control on Moku FPGA
+
+## What is this?
+
+Reusable VHDL interface for fault injection probe control, designed to work with multiple probe types (EMFI, laser FI, voltage glitching, RF injection).
+
+**Key Innovation:** Generic interface modeled after DS1120A (de facto standard), but vendor-agnostic for multi-probe support.
+
+**Design Philosophy:** Standard FSM-based control with configurable parameters, avoiding probe-specific logic in VHDL.
+
+## Core Component
+
+### fi_probe_interface.vhd
+
+**Purpose:** Standard FPGA interface for FI probe control
+
+**Features:**
+- Configurable pulse width control (generic PULSE_WIDTH_BITS)
+- Configurable voltage/power control (generic VOLTAGE_BITS)
+- FSM-based state management (IDLE → ARMED → PULSE_ACTIVE → COOLDOWN)
+- Safety interlocks (cooldown period, fault detection)
+- Status feedback (ready, busy, fault flags)
+
+**FSM States:**
+```
+IDLE         - Ready for arming
+ARMED        - Waiting for trigger
+PULSE_ACTIVE - Generating fault pulse
+COOLDOWN     - Safety delay before re-arming
+```
+
+**Generics:**
+```vhdl
+PULSE_WIDTH_BITS : positive := 16;  -- Pulse width resolution (0-65535)
+VOLTAGE_BITS     : positive := 16;  -- Voltage/power control resolution
+COOLDOWN_CYCLES  : positive := 125; -- Minimum cycles between pulses (safety)
+```
+
+**Ports:**
+```vhdl
+-- Clock and Reset
+clk      : in  std_logic;
+rst_n    : in  std_logic;
+
+-- Control Inputs (from Moku registers)
+trigger_in   : in  std_logic;
+arm          : in  std_logic;
+pulse_width  : in  unsigned(PULSE_WIDTH_BITS-1 downto 0);
+voltage_ctrl : in  unsigned(VOLTAGE_BITS-1 downto 0);
+
+-- Probe Outputs (to physical probe hardware)
+probe_trigger  : out std_logic;
+probe_pulse    : out std_logic;
+probe_voltage  : out unsigned(VOLTAGE_BITS-1 downto 0);
+
+-- Status Outputs (to Moku registers)
+ready : out std_logic;
+busy  : out std_logic;
+fault : out std_logic;
+```
+
+## Basic Usage
+
+### Integration in Moku Instrument
+
+```vhdl
+library ieee;
+use ieee.std_logic_1164.all;
+use ieee.numeric_std.all;
+
+architecture rtl of my_custom_instrument is
+    -- Signals for probe control
+    signal arm_reg          : std_logic;
+    signal trigger_reg      : std_logic;
+    signal pulse_width_reg  : unsigned(15 downto 0);
+    signal voltage_reg      : unsigned(15 downto 0);
+
+    -- Probe outputs
+    signal probe_trig       : std_logic;
+    signal probe_pulse      : std_logic;
+    signal probe_voltage    : unsigned(15 downto 0);
+
+    -- Status
+    signal probe_ready      : std_logic;
+    signal probe_busy       : std_logic;
+    signal probe_fault      : std_logic;
+
+begin
+    -- Instantiate BPD VHDL interface
+    probe_ctrl : entity work.fi_probe_interface
+        generic map (
+            PULSE_WIDTH_BITS => 16,
+            VOLTAGE_BITS => 16,
+            COOLDOWN_CYCLES => 125  -- 1us @ 125MHz
+        )
+        port map (
+            clk => clk_125mhz,
+            rst_n => rst_n,
+
+            -- From Moku control registers
+            trigger_in => trigger_reg,
+            arm => arm_reg,
+            pulse_width => pulse_width_reg,
+            voltage_ctrl => voltage_reg,
+
+            -- To probe hardware (via Moku outputs)
+            probe_trigger => probe_trig,
+            probe_pulse => probe_pulse,
+            probe_voltage => probe_voltage,
+
+            -- Status to Moku status registers
+            ready => probe_ready,
+            busy => probe_busy,
+            fault => probe_fault
+        );
+
+    -- Connect probe outputs to Moku I/O
+    OUT1 <= probe_trig;      -- Digital trigger output
+    OUT2 <= probe_pulse;     -- Pulse control output
+    DAC1 <= probe_voltage;   -- Analog voltage control
+
+    -- Read status back to registers
+    STATUS_REG(0) <= probe_ready;
+    STATUS_REG(1) <= probe_busy;
+    STATUS_REG(2) <= probe_fault;
+end architecture;
+```
+
+### Typical Control Sequence
+
+```vhdl
+-- Python control side (via Moku API):
+-- 1. Configure pulse width
+instrument.set_control_register(0, pulse_width_ns)
+
+-- 2. Configure voltage
+instrument.set_control_register(1, voltage_digital)
+
+-- 3. Arm probe
+instrument.set_control_register(2, 1)  -- Set arm bit
+
+-- 4. Wait for ready
+while not instrument.get_status_register(0):
+    time.sleep(0.001)
+
+-- 5. Trigger
+instrument.set_control_register(3, 1)  -- Pulse trigger bit
+
+-- 6. Wait for completion
+while instrument.get_status_register(1):  -- busy flag
+    time.sleep(0.001)
+
+-- 7. Disarm
+instrument.set_control_register(2, 0)  -- Clear arm bit
+```
+
+## Testing
+
+### CocoTB Progressive Tests
+
+```bash
+# Run P1 tests (quick validation)
+cd tests/
+pytest test_fi_interface.py
+
+# Run with verbosity
+pytest test_fi_interface.py -v
+
+# Run specific test
+pytest test_fi_interface.py::test_arm_trigger
+```
+
+**Test Coverage:**
+- ✅ Reset behavior
+- ✅ Arm → Armed transition
+- ✅ Trigger → Pulse generation
+- ✅ Cooldown enforcement
+- ✅ Disarm → Idle transition
+- ✅ Fault detection
+
+## Common Tasks
+
+### Configure Pulse Width
+
+```vhdl
+-- From Python (via Moku register)
+pulse_width_ns = 100  -- nanoseconds
+pulse_width_digital = pulse_width_ns  -- Direct mapping for ns resolution
+
+-- VHDL receives via pulse_width port
+-- Internal counter uses this value for pulse duration
+```
+
+### Configure Voltage/Power
+
+```vhdl
+-- From Python (voltage in volts)
+voltage_v = 3.3
+voltage_digital = int((voltage_v / V_MAX) * 2**16)  -- Scale to 16-bit
+
+-- VHDL receives via voltage_ctrl port
+-- Passes through to probe_voltage output (DAC control)
+```
+
+### Handle Probe Faults
+
+```vhdl
+-- VHDL side: Fault detection
+if (some_error_condition) then
+    fault <= '1';
+    state <= IDLE;  -- Reset to safe state
+end if;
+
+-- Python side: Check fault flag
+if instrument.get_status_register(2):  -- fault bit
+    print("Probe fault detected!")
+    instrument.set_control_register(2, 0)  -- Disarm
+```
+
+### Safety Cooldown
+
+```vhdl
+-- Built-in: COOLDOWN_CYCLES generic enforces minimum delay
+-- Example: 125 cycles @ 125MHz = 1μs cooldown
+
+-- Prevents:
+-- - Overheating
+-- - Excessive current draw
+-- - Hardware damage
+
+-- Cannot be bypassed in VHDL (safety feature)
+```
+
+## File Structure
+
+```
+bpd-vhdl/
+├── src/
+│   └── fi_probe_interface.vhd   # Main VHDL component
+├── tests/
+│   ├── test_fi_interface.py     # CocoTB tests
+│   └── conftest.py              # Test configuration
+├── pyproject.toml
+├── llms.txt                     # This file
+├── CLAUDE.md                    # Deep VHDL guide
+└── README.md
+```
+
+## Integration Notes
+
+**Depends on:**
+- `forge-vhdl` - Common VHDL utilities (clock divider, edge detection)
+- GHDL + CocoTB - Testing infrastructure
+
+**Used by:**
+- Moku custom instruments (CloudCompile bitstreams)
+- `bpd-core` / `bpd-drivers` - Python control layer
+
+**Design pattern:** Generic VHDL → Controlled by Python via Moku registers
+
+## Design Principles
+
+1. **Vendor agnostic** - No probe-specific logic in VHDL
+2. **Configurable** - Generics for pulse width/voltage resolution
+3. **Safe by default** - Enforced cooldown, fault detection
+4. **Simple FSM** - Clear state transitions, easy debugging
+5. **Testable** - Full CocoTB test coverage
+
+## Common Workflows
+
+### Debug FSM States
+**Task:** "Probe not triggering, check state machine"
+**→ Use:** `fsm_observer` from `forge-vhdl` (maps states to voltages)
+**→ Read:** [CLAUDE.md](CLAUDE.md) Section "FSM Debugging"
+
+### Add New Probe Support
+**Task:** "Integrate laser FI probe with different timing"
+**→ Adjust:** PULSE_WIDTH_BITS, COOLDOWN_CYCLES generics
+**→ Keep:** Same interface (vendor-agnostic design)
+**→ Read:** [CLAUDE.md](CLAUDE.md) Section "Multi-Probe Support"
+
+### Validate Timing Requirements
+**Task:** "Ensure pulse width matches hardware specs"
+**→ Use:** CocoTB tests with realistic values
+**→ Check:** Waveform output in GTKWave
+**→ Read:** [CLAUDE.md](CLAUDE.md) Section "Timing Validation"
+
+## For More Details
+
+**Deep context:** See [CLAUDE.md](CLAUDE.md) for:
+- Complete FSM state diagram and transitions
+- Port specifications and signal timing
+- Integration patterns with Moku instruments
+- CocoTB testing strategies
+- Multi-probe support (EMFI, laser, RF, voltage glitch)
+- Safety mechanisms (cooldown, fault handling)
+- Debugging techniques (waveform analysis, fsm_observer)
+
+**Python integration:** See [../bpd-core/CLAUDE.md](../bpd-core/CLAUDE.md)
+
+**Driver usage:** See [../bpd-drivers/CLAUDE.md](../bpd-drivers/CLAUDE.md)
+
+---
+
+**Version:** 0.1.0
+**Part of:** BPD-002 (Basic Probe Driver)
+**License:** MIT
