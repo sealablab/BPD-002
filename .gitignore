@@ -15,6 +15,7 @@ work-obj08.cf
 *.vcd
 *.ghw
 *.cf
+results.xml
 
 # IDE
 .vscode/
