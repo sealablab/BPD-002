@@ -88,3 +88,16 @@ ignore = []
 [tool.black]
 line-length = 100
 target-version = ["py310", "py311", "py312"]
+
+# ============================================================================
+# VHDL SIMULATION EXTRAS
+# ============================================================================
+# NOTE: Requires GHDL system package (not installable via pip)
+# Install GHDL: sudo apt-get install ghdl-llvm
+# See: docs/GHDL_SETUP.md for full installation guide
+
+# Optional dependency group for VHDL development
+[project.optional-dependencies.vhdl-dev]
+# CocoTB already in base deps, add VHDL-specific Python tools
+pytest-cov = ">=4.0.0"  # Coverage for VHDL test Python wrappers
+

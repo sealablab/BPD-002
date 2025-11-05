@@ -24,6 +24,14 @@ if ! command_exists uv; then
     exit 1
 fi
 
+# Check for GHDL (optional, for VHDL testing)
+if ! command_exists ghdl; then
+    echo "⚠️  GHDL not found - VHDL simulation tests will be skipped"
+    echo "   Install with: sudo apt-get install ghdl-llvm"
+    echo "   See: docs/GHDL_SETUP.md for full setup guide"
+    echo ""
+fi
+
 # Step 1: Initialize git submodules
 echo "📦 Step 1: Initializing git submodules..."
 if [ -f .gitmodules ]; then
