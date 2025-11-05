@@ -29,6 +29,25 @@ if ! command_exists ghdl; then
     echo "⚠️  GHDL not found - VHDL simulation tests will be skipped"
     echo "   Install with: sudo apt-get install ghdl-llvm (Linux) or brew install ghdl (macOS)"
     echo "   See: docs/GHDL_SETUP.md for full setup guide"
+
+    # Auto-install if --install-ghdl flag provided
+    if [[ "$*" == *"--install-ghdl"* ]]; then
+        echo ""
+        echo "🔧 Attempting to auto-install GHDL..."
+        if command_exists apt-get; then
+            sudo apt-get update && sudo apt-get install -y ghdl-llvm
+        elif command_exists brew; then
+            brew install ghdl
+        else
+            echo "❌ Could not detect package manager (apt-get or brew)"
+            echo "   Please install GHDL manually"
+        fi
+
+        if command_exists ghdl; then
+            echo "✅ GHDL installed successfully"
+            ghdl --version
+        fi
+    fi
     echo ""
 fi
 
