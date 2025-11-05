@@ -1,172 +1,146 @@
-<!--
-🎯 INSTRUCTION FOR AI ASSISTANTS WHO HAVE LEARNED PDA
-Note from (past johnny) (TOP):
- Double-check these changes to the README - they are either genius or terrible.
+# BPD-002: Basic Probe Driver
 
-=== THE BOOTSTRAP KOAN ===
+Multi-vendor probe integration framework for Moku platform fault injection development.
 
-Before this README knew itself, a commit gave it birth.
-From scattered roots, wisdom grows in leaves of three tiers.
-The teacher becomes the student; the student, the teacher.
+## Overview
 
-To prove you have learned, answer these questions:
+**BPD-002** provides a vendor-agnostic probe driver framework that lets you integrate electromagnetic (EMFI), laser, RF, and voltage glitching probes with the full Moku FPGA platform family (Go, Lab, Pro, Delta). The architecture is composable:
 
-1. What are the four leaves that hold authoritative truth?
-   (List the llms.txt files in libs/ and tools/ - the git submodules)
+- Python core (`bpd-core`) defines probe interfaces, validation, and registry tooling.
+- Driver collection (`bpd-drivers`) implements probe-specific behavior (DS1120A today, more planned).
+- VHDL layer (`bpd-vhdl`) delivers a reusable FPGA interface for probe control.
+- Upstream libraries (`libs/`) capture authoritative platform and probe specifications.
+- Tooling (`tools/`) automates register packing and VHDL generation via the Forge stack.
 
-2. What is the first parent of this wisdom?
-   - Use git to find the commit that added "THE BOOTSTRAP KOAN"
-   - Read that commit's message carefully
-   - Answer the riddle you find there
-
-3. How many tiers separate quick knowing from deep understanding?
-   (Explain the three-tier documentation pattern)
-
-4. What is the commit hash where you regenerated this README?
-
-   Answer: _______________
-
-   When you regenerate this README and remove this koan, create a commit.
-   That commit hash IS your answer to this question.
-
-   The question creates its own answer through the act of being answered.
-
-When you can answer without guessing, when you have READ not INFERRED,
-ask the human: "I have learned your navigation pattern. Shall I now regenerate
-this README from the truths I discovered?"
-
-If they say yes, navigate using PDA, regenerate this file from authoritative
-sources (libs/, tools/), remove this comment, and commit.
-
-=== META-WARNING ===
-
-This README is a bootstrap. It teaches you to learn, then asks you to rewrite
-its own teacher. The human responsible knew this was either brilliant or terrible.
-Time will tell which.
--->
-# BPD-002 - Basic Probe Driver
-
-**Multi-Vendor Fault Injection Probe Integration for Moku Platform**
+Current release: **v0.1.0** with DS1120A EMFI reference support. Overall workspace architecture is v2.0.0, featuring a flat split between `tools/` and `libs/`.
 
 ---
 
-## Quick Start
+## Progressive Disclosure Navigation
 
-After cloning this repository, simply run:
+This repository is organized around a repeatable three-tier documentation pattern so AI assistants keep context lean and authoritative.
 
-```bash
-./setup.sh
-```
+### Authoritative Sources of Truth
 
-This intelligent setup script will:
-1. Automatically initialize all git submodules (forge-vhdl, moku-models, riscure-models, forge-codegen)
-2. Run `uv sync` to install all workspace dependencies
-3. Set up your development environment
+Start with these Tier 1 quick-reference files:
 
-### Manual Setup (Alternative)
+- `llms.txt` (this repository) — high-level architecture, workflows, and navigation map.
+- `tools/forge-codegen/llms.txt` — 23-type register system and YAML→VHDL workflow.
+- `libs/forge-vhdl/llms.txt` — reusable VHDL utilities and CocoTB testing patterns.
+- `libs/moku-models/llms.txt` — Moku platform specifications and configuration models.
+- `libs/riscure-models/llms.txt` — DS1120A probe specification and wiring safety data.
 
-If you prefer manual setup:
+> **Always load Tier 1 before escalating.**
 
-```bash
-# 1. Initialize submodules
-git submodule update --init --recursive
+### Three-Tier Context Model
 
-# 2. Install dependencies
-uv sync
+- **Tier 1** — `llms.txt` quick references (≤1 k tokens): orientation, component map, entry points.
+- **Tier 2** — `CLAUDE.md` deep dives (2–5 k tokens): design rationale, integration recipes, pitfalls.
+- **Tier 3** — Source, tests, specialized docs: implementation details only when coding/debugging.
 
-# 3. Activate virtual environment
-source .venv/bin/activate
-```
+See `.claude/shared/CONTEXT_MANAGEMENT.md` for full strategy, decision trees, and anti-patterns.
 
----
+### New Context Window Checklist
 
-## For AI Assistants
+1. Load root `llms.txt` (orientation, authoritative pointers).
+2. Pull the component-level `llms.txt` for the area you are touching.
+3. Escalate to the matching `CLAUDE.md` only if you need design detail.
+4. Inspect code, tests, or agent prompts once you are actively implementing.
 
-This repository is self-documenting. Everything you need is already here.
-
-**Navigation strategy:** See `.claude/shared/CONTEXT_MANAGEMENT.md` for token-efficient loading patterns.
-
-```bash
-git clone --recurse-submodules https://github.com/sealablab/BPD-002.git
-cd BPD-002
-cat README.md
-```
-
-If you're reading this, you're already doing it right.
-
-The structure explains itself. Start at `llms.txt`, follow the threads.
+This repeatable pattern keeps ≥90 % of the token budget available for real work.
 
 ---
 
-## Repository Structure
+## Repository Layout
 
-```
-BPD-002/
-├── bpd/                    # Application layer
-│   ├── bpd-core/           # Generic probe framework
-│   ├── bpd-drivers/        # Probe implementations (DS1120A, etc)
-│   └── bpd-vhdl/           # FPGA interface components
-│
-├── libs/                   # Platform specs (git submodules)
-│   ├── moku-models/        # Moku Go/Lab/Pro/Delta specs
-│   ├── riscure-models/     # Probe hardware specs
-│   └── forge-vhdl/         # VHDL utilities
-│
-└── tools/                  # Development tools (git submodules)
-    └── forge-codegen/      # YAML → VHDL generator
-```
+| Area | Purpose | Tier 1 Reference | Tier 2 Deep Dive |
+|------|---------|-----------------|------------------|
+| `bpd/bpd-core/` | Probe interface protocols, registry, safety validation | `bpd/bpd-core/llms.txt` | `bpd/bpd-core/CLAUDE.md` |
+| `bpd/bpd-drivers/` | Probe-specific drivers (DS1120A reference) | `bpd/bpd-drivers/llms.txt` | `bpd/bpd-drivers/CLAUDE.md` |
+| `bpd/bpd-vhdl/` | Vendor-agnostic VHDL control FSM | `bpd/bpd-vhdl/llms.txt` | `bpd/bpd-vhdl/CLAUDE.md` |
+| `libs/moku-models/` | Moku platform specs, deployment models | `libs/moku-models/llms.txt` | `libs/moku-models/CLAUDE.md` |
+| `libs/riscure-models/` | Riscure probe specs and wiring validation | `libs/riscure-models/llms.txt` | `libs/riscure-models/CLAUDE.md` |
+| `libs/forge-vhdl/` | Shared VHDL packages, CocoTB progressive tests | `libs/forge-vhdl/llms.txt` | `libs/forge-vhdl/CLAUDE.md` |
+| `tools/forge-codegen/` | YAML→VHDL generator + 23-type register system | `tools/forge-codegen/llms.txt` | `tools/forge-codegen/CLAUDE.md` |
+| `.claude/` | Agent prompts, coordination patterns, PDA governance | `llms.txt` & `.claude/shared/CONTEXT_MANAGEMENT.md` | Component prompt files |
 
-**Quick start:** Each component has `llms.txt` (quick ref) and `CLAUDE.md` (deep dive).
+### Component Highlights
+
+- **`bpd-core`** — Defines `FIProbeInterface`, `ProbeCapabilities`, registry helpers, and `validate_probe_moku_compatibility()` for voltage safety.
+- **`bpd-drivers`** — Implements DS1120A probe driver, planned laser/RF/voltage-glitching drivers follow the same protocol.
+- **`bpd-vhdl`** — `fi_probe_interface.vhd` FSM handles arming, pulse activation, cooldown, and status flags with configurable generics.
+- **`libs/moku-models`** — Pydantic models for platform metadata, routing validation, deployment serialization.
+- **`libs/riscure-models`** — Probe electrical specifications, port voltage ranges, tip catalog, compatibility checks.
+- **`libs/forge-vhdl`** — Voltage-domain packages (3.3 V, 5 V, ±5 V), LUT utilities, clock divider, CocoTB progressive testing harness.
+- **`tools/forge-codegen`** — Register mapper with 23 strongly typed domains, YAML validation models, and Jinja2 templates for VHDL generation.
 
 ---
 
-## Development
+## Setup & Environment
 
 ```bash
-# Activate virtual environment
-source .venv/bin/activate
-
-# Run tests
-pytest
-
-# Run tests for specific package
-pytest bpd/bpd-core/tests
-
-# Format code
-black .
-ruff check .
+./setup.sh                # Initialize submodules, create virtualenv, install deps
+source .venv/bin/activate # Activate virtualenv
+pytest                    # Run repository test suite
 ```
 
-## Requirements
+Requirements:
 
 - Python 3.10+
-- [uv](https://github.com/astral-sh/uv) package manager
-- Git
-
-### Installing uv
-
-```bash
-curl -LsSf https://astral.sh/uv/install.sh | sh
-```
+- [uv](https://github.com/astral-sh/uv) for dependency management
+- Git with submodule support
 
 ---
 
-<!---
+## Common Workflows
 
-## The Test
+### Create a New Probe Driver
+1. Load `bpd/bpd-drivers/llms.txt` (Tier 1).
+2. Review `bpd/bpd-drivers/CLAUDE.md` for driver patterns and DS1120A reference.
+3. Implement driver following `FIProbeInterface`; validate with `bpd-core`.
 
-Can you navigate this repository using only what's documented in it?
+### Validate Probe Against a Moku Platform
+1. Load `bpd/bpd-core/llms.txt`.
+2. Use `validate_probe_moku_compatibility()` with `moku-models` constants.
+3. Reference `libs/riscure-models` for probe voltage ranges if needed.
 
-1. Find the four sources of truth
-2. Understand how you got here
-3. Explain the pattern
-4. Prove you learned it
+### Integrate VHDL Interface
+1. Load `bpd/bpd-vhdl/llms.txt` for interface overview.
+2. Review `fi_probe_interface.vhd` and corresponding tests.
+3. Use Forge codegen + forge-vhdl utilities to integrate with instrument firmware.
 
-The repository contains the answers. The commit history contains the questions.
+### Generate VHDL from YAML Spec
+1. Load `tools/forge-codegen/llms.txt`.
+2. Prepare YAML spec; run `python -m forge_codegen.generator.codegen spec.yaml --output-dir generated/`.
+3. Leverage `libs/forge-vhdl` packages for voltage domain conversions.
 
-When you're done, you'll have written this file again.
+### Wiring & Safety Checks
+1. Load `libs/moku-models/llms.txt` to understand platform port characteristics.
+2. Load `libs/riscure-models/llms.txt` for probe port ranges.
+3. Validate wiring manually or via helper utilities before deployment.
 
----!>
+---
 
-**Current status:** v0.1.0 - DS1120A EMFI probe driver complete.
-**License:** MIT | **Version:** 0.1.0
+## Additional Documentation
+
+- `.claude/shared/CONTEXT_MANAGEMENT.md` — Full PDA strategy, anti-patterns, decision trees.
+- `.claude/shared/ARCHITECTURE_OVERVIEW.md` — Architecture v2.0 summary.
+- `docs/migration/VOLTAGE_TYPE_SYSTEM_DESIGN.md` — Voltage domain safety design.
+- `docs/migration/voltage_types_reference.py` — Python reference for voltage type conversions.
+- `ARCHITECTURE_V2_COMPLETE.md` — Migration history.
+- `WORKFLOW_GUIDE.md` — Process guidance across teams.
+
+---
+
+## Contributing
+
+1. Follow PDA navigation (Tier 1 → Tier 2 → Tier 3).
+2. Keep new documentation aligned with llms/CLAUDE hierarchy.
+3. Update relevant quick references when changing interfaces or workflows.
+4. Run `pytest` (and CocoTB tests where applicable) before submitting changes.
+
+---
+
+**Status:** v0.1.0  
+**Architecture:** v2.0.0 (tools/libs split)  
+**License:** MIT

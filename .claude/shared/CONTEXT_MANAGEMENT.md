@@ -2,7 +2,7 @@
 
 **Version:** 1.0 (BPD-002-specific)
 **Purpose:** Token optimization and tiered loading for AI agents working on BPD-002
-**Audience:** AI agents working in this project
+**Audience:** AI agents working in this project (Codex agents see also `CODEX_SUPPORT.md`)
 
 ---
 
