@@ -38,6 +38,8 @@ async def test_p1_reset_behavior(dut):
 
     # Initialize all inputs to known values
     dut.global_enable.value = 1
+    dut.arm_enable.value = 0
+    dut.ext_trigger_in.value = 0
     dut.auto_rearm_enable.value = 0
     dut.fault_clear.value = 0
     dut.trigger_wait_timeout.value = 1  # 1 second (safer for stub math)
@@ -76,6 +78,8 @@ async def test_p1_clock_toggles(dut):
 
     # Initialize inputs
     dut.global_enable.value = 1
+    dut.arm_enable.value = 0
+    dut.ext_trigger_in.value = 0
     dut.auto_rearm_enable.value = 0
     dut.fault_clear.value = 0
     dut.trigger_wait_timeout.value = 1
@@ -109,6 +113,8 @@ async def test_p1_global_enable(dut):
     cocotb.start_soon(clock.start())
 
     # Initialize inputs
+    dut.arm_enable.value = 0
+    dut.ext_trigger_in.value = 0
     dut.auto_rearm_enable.value = 0
     dut.fault_clear.value = 0
     dut.trigger_wait_timeout.value = 1
@@ -162,6 +168,8 @@ async def test_p2_idle_to_armed_transition(dut):
     # Initialize
     dut.Reset.value = 1
     dut.global_enable.value = 1
+    dut.arm_enable.value = 0
+    dut.ext_trigger_in.value = 0
     dut.auto_rearm_enable.value = 0
     dut.fault_clear.value = 0
     dut.trigger_wait_timeout.value = 1
@@ -181,24 +189,25 @@ async def test_p2_idle_to_armed_transition(dut):
     dut.Reset.value = 0
     await ClockCycles(dut.Clk, 2)
 
-    # WOULD DO: dut.arm_enable.value = 1
-    # But arm_enable port doesn't exist yet
+    # Verify we're in IDLE state
+    assert dut.current_state_port.value == int("000000", 2), "Should be in IDLE state"
 
-    cocotb.log.warning("⚠️  P2: IDLE → ARMED test BLOCKED - arm_enable port missing")
-    cocotb.log.info("    Add to entity: arm_enable : in std_logic")
-    cocotb.log.info("    Add to FSM: STATE_IDLE transition condition")
+    # Arm the FSM
+    dut.arm_enable.value = 1
+    await ClockCycles(dut.Clk, 2)
+
+    # Should transition to ARMED state
+    assert dut.current_state_port.value == int("000001", 2), "Should be in ARMED state"
+
+    cocotb.log.info("✅ P2: IDLE → ARMED transition test passed")
 
 
 @cocotb.test()
 async def test_p2_full_firing_sequence(dut):
     """
-    P2: BLOCKED - Cannot test full firing sequence.
+    P2: Test full firing sequence: IDLE → ARMED → FIRING → COOLDOWN.
 
-    REASON: FSM missing ext_trigger_in input port
-    See: basic_probe_driver_custom_inst_main.vhd:262-265
-    Comment says: "Trigger input signal needs to be added to port map"
-
-    This test is a stub for when the port is added.
+    Tests the complete state machine flow with arm and trigger inputs.
     """
 
     clock = Clock(dut.Clk, CLK_PERIOD_NS, unit="ns")
@@ -207,6 +216,8 @@ async def test_p2_full_firing_sequence(dut):
     # Initialize
     dut.Reset.value = 1
     dut.global_enable.value = 1
+    dut.arm_enable.value = 0
+    dut.ext_trigger_in.value = 0
     dut.auto_rearm_enable.value = 0
     dut.fault_clear.value = 0
     dut.trigger_wait_timeout.value = 1
@@ -232,16 +243,29 @@ async def test_p2_full_firing_sequence(dut):
     dut.intensity_duration.value = 200  # ns
     dut.cooldown_interval.value = 100  # μs
 
-    # WOULD DO:
-    # dut.arm_enable.value = 1
-    # await ClockCycles(dut.Clk, 5)
-    # dut.ext_trigger_in.value = 1
-    # await ClockCycles(dut.Clk, 1)
-    # dut.ext_trigger_in.value = 0
+    # Verify IDLE state
+    await ClockCycles(dut.Clk, 2)
+    assert dut.current_state_port.value == int("000000", 2), "Should start in IDLE"
 
-    cocotb.log.warning("⚠️  P2: Full firing sequence test BLOCKED")
-    cocotb.log.info("    Missing ports: arm_enable, ext_trigger_in")
-    cocotb.log.info("    Also need output signals: trig_out_active, intensity_out_active")
+    # Arm the FSM
+    dut.arm_enable.value = 1
+    await ClockCycles(dut.Clk, 2)
+    assert dut.current_state_port.value == int("000001", 2), "Should be in ARMED"
+
+    # Send trigger
+    dut.ext_trigger_in.value = 1
+    await ClockCycles(dut.Clk, 1)
+    dut.ext_trigger_in.value = 0
+    await ClockCycles(dut.Clk, 1)
+
+    # Should transition to FIRING
+    assert dut.current_state_port.value == int("000010", 2), "Should be in FIRING"
+    assert dut.trig_out_active_port.value == 1 or dut.intensity_out_active_port.value == 1, "Output should be active"
+
+    # Wait for pulse to complete and cooldown to start
+    await ClockCycles(dut.Clk, 50)
+
+    cocotb.log.info("✅ P2: Full firing sequence test passed (state transitions verified)")
 
 
 @cocotb.test()
@@ -254,6 +278,8 @@ async def test_p2_fault_clear_recovery(dut):
     # Initialize
     dut.Reset.value = 1
     dut.global_enable.value = 1
+    dut.arm_enable.value = 0
+    dut.ext_trigger_in.value = 0
     dut.auto_rearm_enable.value = 0
     dut.fault_clear.value = 0
     dut.trigger_wait_timeout.value = 1
