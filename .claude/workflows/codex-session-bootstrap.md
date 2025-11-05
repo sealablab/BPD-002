@@ -33,6 +33,12 @@ For each directory involved (e.g., `bpd/bpd-core`, `libs/moku-models`):
 
 **Tip:** The BPD application exposes three `llms.txt` siblings under `bpd/` (core/drivers/vhdl); keep them synchronized and reference them explicitly in summaries.
 
+**Remember these Tier 1 anchors:**
+- `llms.txt` (root repo map)
+- `bpd/bpd-core/llms.txt`, `bpd/bpd-drivers/llms.txt`, `bpd/bpd-vhdl/llms.txt`
+- `tools/forge-codegen/llms.txt`
+- `libs/forge-vhdl/llms.txt`, `libs/moku-models/llms.txt`, `libs/riscure-models/llms.txt`
+
 ---
 
 ## 3. Design Escalation (Tier 2)
