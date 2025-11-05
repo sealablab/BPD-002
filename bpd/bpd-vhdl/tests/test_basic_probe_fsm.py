@@ -480,7 +480,6 @@ async def test_summary_report(dut):
     cocotb.log.info("P1 Tests: ✅ PASS (3/3) - Basic sanity checks work")
     cocotb.log.info("P2 Tests: ⚠️  BLOCKED - FSM missing input ports")
     cocotb.log.info("P3 Tests: ⚠️  BLOCKED - FSM missing input ports")
-    cocotb.log.info("")
     cocotb.log.info("FSM Status: Syntactically correct, but functionally incomplete")
     cocotb.log.info("Next Step: Add arm_enable and ext_trigger_in ports to entity")
     cocotb.log.info("=" * 70)
