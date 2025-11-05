@@ -118,6 +118,30 @@ BPD-002/
 
 **Quick start:** Each component has `llms.txt` (quick ref) and `CLAUDE.md` (deep dive).
 
+### BPD Application (This Project)
+
+| Component | Purpose | Quick Ref |
+|-----------|---------|-----------|
+| [bpd-core](bpd/bpd-core/) | Generic probe driver framework (Python) | [llms.txt](bpd/bpd-core/llms.txt) |
+| [bpd-drivers](bpd/bpd-drivers/) | Probe-specific drivers (DS1120A + planned) | [llms.txt](bpd/bpd-drivers/llms.txt) |
+| [bpd-vhdl](bpd/bpd-vhdl/) | Vendor-agnostic VHDL probe interface | [llms.txt](bpd/bpd-vhdl/llms.txt) |
+
+### Core Platform (git submodules - upstream dependencies)
+
+| Component | Purpose | Quick Ref |
+|-----------|---------|-----------|
+| [moku-models](https://github.com/sealablab/moku-models) | **REQUIRED** - Moku platform specifications (Go/Lab/Pro/Delta) | [llms.txt](https://github.com/sealablab/moku-models/blob/main/llms.txt) |
+| [riscure-models](https://github.com/sealablab/riscure-models) | DS1120A probe specs (reference) | [llms.txt](https://github.com/sealablab/riscure-models/blob/main/llms.txt) |
+
+### VHDL Development Tools (git submodules - upstream dependencies)
+
+| Component | Purpose | Quick Ref |
+|-----------|---------|-----------|
+| [forge-codegen](https://github.com/sealablab/moku-instrument-forge-codegen) | YAML → VHDL code generator (23-type system) | [llms.txt](https://github.com/sealablab/moku-instrument-forge-codegen/blob/main/llms.txt) |
+| [forge-vhdl](https://github.com/sealablab/moku-instrument-forge-vhdl) | Reusable VHDL components + voltage utilities | [llms.txt](https://github.com/sealablab/moku-instrument-forge-vhdl/blob/main/llms.txt) |
+
+Each component follows a **three-tier documentation pattern**: `llms.txt` → `CLAUDE.md` → source code
+
 ---
 
 ## Development
