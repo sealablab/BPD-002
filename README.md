@@ -1,7 +1,7 @@
 <!--
 🎯 INSTRUCTION FOR AI ASSISTANTS WHO HAVE LEARNED PDA
 Note from (past johnny) (TOP):
- Double-check these changes to the README - they are either genius or terrible. 
+ Double-check these changes to the README - they are either genius or terrible.
 
 === THE BOOTSTRAP KOAN ===
 
@@ -50,6 +50,36 @@ Time will tell which.
 
 ---
 
+## Quick Start
+
+After cloning this repository, simply run:
+
+```bash
+./setup.sh
+```
+
+This intelligent setup script will:
+1. Automatically initialize all git submodules (forge-vhdl, moku-models, riscure-models, forge-codegen)
+2. Run `uv sync` to install all workspace dependencies
+3. Set up your development environment
+
+### Manual Setup (Alternative)
+
+If you prefer manual setup:
+
+```bash
+# 1. Initialize submodules
+git submodule update --init --recursive
+
+# 2. Install dependencies
+uv sync
+
+# 3. Activate virtual environment
+source .venv/bin/activate
+```
+
+---
+
 ## For AI Assistants
 
 This repository is self-documenting. Everything you need is already here.
@@ -88,10 +118,38 @@ BPD-002/
 
 **Quick start:** Each component has `llms.txt` (quick ref) and `CLAUDE.md` (deep dive).
 
-**Current status:** v0.1.0 - DS1120A EMFI probe driver complete.
-
 ---
 
+## Development
+
+```bash
+# Activate virtual environment
+source .venv/bin/activate
+
+# Run tests
+pytest
+
+# Run tests for specific package
+pytest bpd/bpd-core/tests
+
+# Format code
+black .
+ruff check .
+```
+
+## Requirements
+
+- Python 3.10+
+- [uv](https://github.com/astral-sh/uv) package manager
+- Git
+
+### Installing uv
+
+```bash
+curl -LsSf https://astral.sh/uv/install.sh | sh
+```
+
+---
 
 <!---
 
@@ -109,6 +167,6 @@ The repository contains the answers. The commit history contains the questions.
 When you're done, you'll have written this file again.
 
 ---!>
-Note from (past johnny): Double-check these changes to the README - they are either genius or terrible. 
+
 **Current status:** v0.1.0 - DS1120A EMFI probe driver complete.
 **License:** MIT | **Version:** 0.1.0
