@@ -323,8 +323,6 @@ begin
                 cooldown_timer <= (others => '0');
                 monitor_start_timer <= (others => '0');
                 monitor_duration_timer <= (others => '0');
-                trig_out_active <= '0';
-                intensity_active <= '0';
                 monitor_window_open <= '0';
                 monitor_triggered <= '0';
 
@@ -338,8 +336,6 @@ begin
                         cooldown_timer <= (others => '0');
                         monitor_start_timer <= (others => '0');
                         monitor_duration_timer <= (others => '0');
-                        trig_out_active <= '0';
-                        intensity_active <= '0';
                         monitor_window_open <= '0';
                         monitor_triggered <= '0';
 
@@ -353,17 +349,11 @@ begin
                         -- Trigger output pulse timing
                         if trig_out_timer < trig_out_duration_cycles then
                             trig_out_timer <= trig_out_timer + 1;
-                            trig_out_active <= '1';
-                        else
-                            trig_out_active <= '0';
                         end if;
 
                         -- Intensity output pulse timing
                         if intensity_timer < intensity_duration_cycles then
                             intensity_timer <= intensity_timer + 1;
-                            intensity_active <= '1';
-                        else
-                            intensity_active <= '0';
                         end if;
 
                         -- Monitor window timing
@@ -410,12 +400,23 @@ begin
     end process;
 
     ------------------------------------------------------------------------
+    -- Output Control (Concurrent)
+    --
+    -- Activate outputs based purely on state, matching reference FSM pattern
+    -- Timers control state exit (firing_complete), not output activation
+    -- This ensures outputs respond immediately when entering FIRING state
+    ------------------------------------------------------------------------
+    trig_out_active <= '1' when state = STATE_FIRING else '0';
+    intensity_active <= '1' when state = STATE_FIRING else '0';
+
+    ------------------------------------------------------------------------
     -- Status Flags (Combinational)
     --
     -- Derive control flags from counter values
     ------------------------------------------------------------------------
     timeout_occurred  <= '1' when (armed_timer >= trigger_wait_timeout_cycles) else '0';
-    firing_complete   <= '1' when (trig_out_active = '0' and intensity_active = '0'
+    firing_complete   <= '1' when (trig_out_timer >= trig_out_duration_cycles
+                                   and intensity_timer >= intensity_duration_cycles
                                    and state = STATE_FIRING) else '0';
     cooldown_complete <= '1' when (cooldown_timer >= cooldown_interval_cycles) else '0';
 
