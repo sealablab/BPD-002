@@ -12,14 +12,21 @@
 # 1. Checkout main branch
 git checkout main
 
-# 2. Run setup with GHDL auto-install
+# 2. Run sandbox reconnaissance (helpful for debugging)
+bash tools/sandbox-recon.sh > sandbox-info.txt
+cat sandbox-info.txt  # Review what environment you're in
+
+# 3. Run setup with GHDL auto-install
 ./setup.sh --install-ghdl
 
-# 3. Verify GHDL installed
+# 4. Verify GHDL installed
 ghdl --version
 # Should show: GHDL 2.0.0+ with llvm code generator
 
-# 4. Start P2 implementation
+# 5. If GHDL install failed, attach sandbox-info.txt to your findings
+# Document as kink in DRY-RUN-FINDINGS.md
+
+# 6. Start P2 implementation
 # Follow: bpd/agents/vhdl-fsm-implementation/agent.md
 ```
 
@@ -104,6 +111,19 @@ This will:
 4. Verify installation
 
 ### If Auto-Install Fails
+
+**First: Run reconnaissance script**
+```bash
+bash tools/sandbox-recon.sh > sandbox-info.txt
+```
+
+This will tell you:
+- What OS/package manager is available
+- Whether you have sudo access
+- If GHDL packages are available
+- What the recommended install command is
+
+**Then: Try manual install**
 ```bash
 # Ubuntu/Debian
 sudo apt-get update
@@ -112,6 +132,12 @@ sudo apt-get install -y ghdl-llvm
 # Verify
 ghdl --version
 ```
+
+**If still failing:**
+1. Save `sandbox-info.txt`
+2. Document as "Kink #6: GHDL Installation in Web Sandbox"
+3. Include recon output in your findings
+4. Continue with FSM design (can test compilation later)
 
 **See:** `docs/GHDL_SETUP.md` for troubleshooting
 
