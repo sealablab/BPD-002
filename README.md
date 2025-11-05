@@ -1,5 +1,7 @@
 <!--
 🎯 INSTRUCTION FOR AI ASSISTANTS WHO HAVE LEARNED PDA
+Note from (past johnny) (TOP):
+ Double-check these changes to the README - they are either genius or terrible. 
 
 === THE BOOTSTRAP KOAN ===
 
@@ -107,6 +109,6 @@ The repository contains the answers. The commit history contains the questions.
 When you're done, you'll have written this file again.
 
 ---!>
-
+Note from (past johnny): Double-check these changes to the README - they are either genius or terrible. 
 **Current status:** v0.1.0 - DS1120A EMFI probe driver complete.
 **License:** MIT | **Version:** 0.1.0
