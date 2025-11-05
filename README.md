@@ -210,6 +210,8 @@ This repository uses a **three-tier documentation pattern** optimized for effici
 
 **For AI Assistants:** See [.claude/shared/CONTEXT_MANAGEMENT.md](.claude/shared/CONTEXT_MANAGEMENT.md) for complete token optimization strategy. Load minimally (llms.txt first), expand as needed (CLAUDE.md for design, source for implementation). This keeps 95% of your token budget available for actual work.
 
+**For Cursor users:** The `.cursorrules` file provides automatic navigation instructions. Cursor will automatically follow the three-tier documentation pattern. See [CURSOR.md](CURSOR.md) for Cursor-specific documentation.
+
 ## Platform Comparison
 
 | Platform | Slots | I/O | Clock | DIO | Use Case |
@@ -271,7 +273,8 @@ git push
 ### Architecture Overview
 - **Architecture overview:** [.claude/shared/ARCHITECTURE_OVERVIEW.md](.claude/shared/ARCHITECTURE_OVERVIEW.md) (v2.0)
 - **Context management:** [.claude/shared/CONTEXT_MANAGEMENT.md](.claude/shared/CONTEXT_MANAGEMENT.md)
-- **AI navigation:** [HUMAN_AI_JUMPSTART.md](HUMAN_AI_JUMPSTART.md)
+- **AI navigation (general):** [HUMAN_AI_JUMPSTART.md](HUMAN_AI_JUMPSTART.md)
+- **Cursor-specific:** [CURSOR.md](CURSOR.md) - Cursor adaptation of PDA pattern
 
 ### Component Documentation
 - **BPD Core:** [bpd/bpd-core/llms.txt](bpd/bpd-core/llms.txt) | [CLAUDE.md](bpd/bpd-core/CLAUDE.md)
