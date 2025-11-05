@@ -71,6 +71,8 @@ entity basic_probe_driver_custom_inst_main is
         -- Application Signals (Typed - from BasicAppDataTypes)
         ------------------------------------------------------------------------
         -- Arming and lifecycle
+        arm_enable           : in std_logic;               -- Arm the FSM (IDLE → ARMED)
+        ext_trigger_in       : in std_logic;               -- External trigger (ARMED → FIRING)
         trigger_wait_timeout : in unsigned(15 downto 0);  -- Max wait in ARMED (s)
         auto_rearm_enable    : in std_logic;               -- Re-arm after cooldown
         fault_clear          : in std_logic;               -- Clear fault state
@@ -92,7 +94,14 @@ entity basic_probe_driver_custom_inst_main is
         monitor_threshold_voltage : in signed(15 downto 0);  -- Threshold (mV)
         monitor_expect_negative   : in std_logic;             -- Polarity select
         monitor_window_start      : in unsigned(31 downto 0); -- Window delay (ns)
-        monitor_window_duration   : in unsigned(31 downto 0)  -- Window length (ns)
+        monitor_window_duration   : in unsigned(31 downto 0); -- Window length (ns)
+
+        ------------------------------------------------------------------------
+        -- Status Outputs (for test observability and external monitoring)
+        ------------------------------------------------------------------------
+        trig_out_active_port      : out std_logic;            -- Trigger output is active
+        intensity_out_active_port : out std_logic;            -- Intensity output is active
+        current_state_port        : out std_logic_vector(5 downto 0) -- Current FSM state
     );
 end entity basic_probe_driver_custom_inst_main;
 
@@ -242,27 +251,26 @@ begin
     ------------------------------------------------------------------------
     FSM_NEXT_STATE: process(state, timeout_occurred, firing_complete,
                            cooldown_complete, auto_rearm_enable,
-                           fault_clear_edge, fault_detected)
+                           fault_clear_edge, fault_detected, arm_enable,
+                           ext_trigger_in)
     begin
         -- Default: hold current state
         next_state <= state;
 
         case state is
             when STATE_IDLE =>
-                -- Transition to ARMED on implicit arm condition
-                -- (In real implementation, would need arm signal from register or input)
-                -- For now, staying in IDLE until external trigger
-                -- Note: This may need arm signal added to register interface
-                next_state <= STATE_IDLE;
+                -- Transition to ARMED when arm_enable asserted
+                if arm_enable = '1' then
+                    next_state <= STATE_ARMED;
+                end if;
 
             when STATE_ARMED =>
                 if timeout_occurred = '1' then
                     -- Timeout watchdog expired
                     next_state <= STATE_FAULT;
-                -- elsif trigger_condition = '1' then
-                --     -- External trigger received
-                --     next_state <= STATE_FIRING;
-                -- Note: Trigger input signal needs to be added to port map
+                elsif ext_trigger_in = '1' then
+                    -- External trigger received
+                    next_state <= STATE_FIRING;
                 end if;
 
             when STATE_FIRING =>
@@ -467,5 +475,14 @@ begin
     --         state_vector => state,
     --         voltage_out => debug_fsm_voltage  -- Add to entity ports
     --     );
+
+    ------------------------------------------------------------------------
+    -- Export Internal Signals to Output Ports
+    --
+    -- Make internal FSM signals visible for test observability
+    ------------------------------------------------------------------------
+    trig_out_active_port      <= trig_out_active;
+    intensity_out_active_port <= intensity_active;
+    current_state_port        <= state;
 
 end architecture rtl;
