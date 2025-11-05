@@ -958,6 +958,284 @@ rm test.vhd test.o
 
 ---
 
-**Next Kink ID:** #6
-**Status:** P2 in progress - GHDL blocker resolved, ready for FSM implementation
+### 🔴 KINK #6: GHDL Installation Blocked in Claude Code Sandbox
 
+**Discovered:** 2025-11-05 (During P2 - VHDL FSM Implementation)
+
+**Problem:**
+GHDL cannot be installed in the Claude Code web sandbox environment due to sudo permission errors. The automated installation via `./setup.sh --install-ghdl` fails with:
+
+```
+sudo: /etc/sudo.conf is owned by uid 999, should be 0
+sudo: /etc/sudoers is owned by uid 999, should be 0
+sudo: error initializing audit plugin sudoers_audit
+```
+
+**Root Cause:**
+The Claude Code sandbox environment has intentionally restricted sudo permissions for security isolation. The sandbox runs with a non-root user (uid 999) that has misconfigured sudo, preventing system package installation.
+
+**Impact:**
+- Cannot test GHDL compilation of generated VHDL FSM in the sandbox
+- P2 implementation can be written but not verified during the session
+- Must rely on:
+  1. Manual review of VHDL syntax
+  2. External testing after session completes
+  3. User installing GHDL outside sandbox
+
+**Workaround:**
+1. Write complete VHDL implementation following forge-vhdl standards
+2. Document syntax decisions thoroughly
+3. User can test compilation after session with: `ghdl -a --std=08 *.vhd`
+4. Note: The package `ghdl-llvm` is available in apt repositories (version 4.1.0)
+
+**Workflow Implications:**
+
+⚠️ **For AI Agents in Sandbox:**
+- Detect sudo failures gracefully
+- Document that compilation testing is deferred
+- Provide clear instructions for user to test post-session
+- Focus on correctness via standards compliance instead
+
+✅ **For Users (Outside Sandbox):**
+- GHDL installation works normally: `sudo apt-get install ghdl-llvm`
+- Can test all generated VHDL after session
+- No workflow blockers
+
+**Design Decisions Made Without Compilation Testing:**
+1. Used `std_logic_vector(5 downto 0)` state encoding (per forge-vhdl standards)
+2. Followed port order: clk, rst_n, global_enable, data inputs/outputs
+3. Used `basic_app_time_pkg` conversion functions (from generated template)
+4. Active-high reset (matches generated shim/template)
+
+**Status:** ⚠️ DOCUMENTED - VHDL written but not compiled
+
+**Next:** User should test compilation post-session and report any issues
+
+**Note for Future Sessions:**
+Claude Code web interface allows **environment selection** at session start. Using a more permissive environment configuration may allow sudo/package installation. If you need to install system packages like GHDL, consider:
+1. Starting a new session
+2. Selecting a development-oriented environment (if available)
+3. Checking if sudo permissions are properly configured
+4. Then proceeding with `./setup.sh --install-ghdl`
+
+---
+
+### 🟡 KINK #7: Missing Physical I/O Ports in Generated Template
+
+**Discovered:** 2025-11-05 (During P2 - VHDL FSM Implementation)
+
+**Problem:**
+The generated `basic_probe_driver_custom_inst_main.vhd` template provides register interfaces but **lacks physical I/O ports** needed for the FSM to interact with hardware:
+
+**Missing Input Ports:**
+- `trigger_in` - External trigger signal to start firing sequence
+- `arm` - Enable/arm signal for safety interlock
+
+**Missing Output Ports:**
+- `dac_trig_out` - DAC output for trigger voltage (driven by `trig_out_voltage`)
+- `dac_intensity` - DAC output for intensity voltage (driven by `intensity_voltage`)
+- Status outputs: `ready`, `busy`, `fault` - FSM state indicators
+
+**Missing ADC Connection:**
+- `probe_monitor_feedback` is defined as an input register, but there's no clear indication of how it gets populated from actual ADC hardware
+
+**Root Cause:**
+The code generator creates a register interface layer (shim → main) but doesn't know:
+1. Which physical I/O ports the application needs
+2. How to wire registers to hardware outputs
+3. Where ADC inputs feed into the register system
+
+**Current Implementation Gap:**
+The FSM has internal signals for controlling outputs:
+```vhdl
+signal trig_out_active : std_logic;
+signal intensity_active : std_logic;
+```
+
+But no entity ports to export these to hardware.
+
+**Comparison to Old Implementation:**
+`fi_probe_interface.vhd.old_pre_yaml` had these ports:
+```vhdl
+port (
+    trigger_in       : in  std_logic;
+    arm              : in  std_logic;
+    probe_trigger    : out std_logic;
+    probe_pulse_ctrl : out std_logic;
+    probe_voltage    : out signed(15 downto 0);
+    ready            : out std_logic;
+    busy             : out std_logic;
+    fault            : out std_logic
+);
+```
+
+**Impact:**
+- FSM logic is complete but cannot interact with hardware
+- Needs integration layer to wire:
+  - Register values → DAC outputs
+  - ADC inputs → Register feedback
+  - Control signals → External trigger/arm
+- Cannot be used standalone
+
+**Proposed Solutions:**
+
+**Option 1: Add to Entity (Breaking Change)**
+```vhdl
+-- Add to entity ports
+trigger_in  : in  std_logic;
+arm         : in  std_logic;
+dac_trig    : out signed(15 downto 0);
+dac_intensity : out signed(15 downto 0);
+status_ready : out std_logic;
+status_busy  : out std_logic;
+status_fault : out std_logic;
+adc_monitor  : in  signed(15 downto 0)
+```
+- **Problem:** Breaks generated shim instantiation
+- **Solution:** Would need to modify shim as well
+
+**Option 2: Higher-Level Wrapper**
+Create `basic_probe_driver_top.vhd` that:
+- Instantiates shim → main
+- Adds physical I/O ports
+- Wires registers to DAC/ADC
+- Provides trigger/arm interface
+
+**Option 3: Extend SimpleCustomInstrument Wrapper**
+The `SimpleCustomInstrument` wrapper (P3 target) has:
+- `InputA/B/C` - ADC inputs
+- `OutputA/B/C` - DAC outputs
+
+Map these in the wrapper:
+```vhdl
+-- In SimpleCustomInstrument wrapper
+InputA → probe_monitor_feedback (via shim)
+OutputA → trig_out voltage (needs export from main)
+OutputB → intensity voltage (needs export from main)
+```
+
+**Status:** ⚠️ DOCUMENTED - Requires integration layer
+
+**Recommended:** Option 3 (extend wrapper in P3) + document port mappings
+
+---
+
+### 🟢 KINK #8: Generated Template Uses Enum States (Standards Violation)
+
+**Discovered:** 2025-11-05 (During P2 - Template Review)
+
+**Problem:**
+The generated `basic_probe_driver_custom_inst_main.vhd` template contains:
+
+```vhdl
+-- Example state machine (customize for your application)
+type state_t is (IDLE, ACTIVE, DONE);
+signal state : state_t;
+```
+
+This **violates forge-vhdl coding standards** which explicitly forbid enum types for FSM states.
+
+**Why This is Wrong:**
+From `libs/forge-vhdl/docs/VHDL_CODING_STANDARDS.md`:
+
+> ⚠️ CRITICAL: Use std_logic_vector for States (NOT Enums!)
+>
+> Why? Verilog compatibility + synthesis predictability
+
+**Correct Pattern:**
+```vhdl
+constant STATE_IDLE   : std_logic_vector(5 downto 0) := "000000";
+constant STATE_ACTIVE : std_logic_vector(5 downto 0) := "000001";
+signal state : std_logic_vector(5 downto 0);
+```
+
+**Impact:**
+- **Low** - Template is marked as "customize for your application"
+- **Medium** - Developers unfamiliar with forge-vhdl standards might copy this pattern
+- **High** - Violates Verilog compatibility (if cross-synthesis needed)
+
+**Root Cause:**
+Template generator doesn't enforce forge-vhdl FSM standards. It uses generic VHDL patterns that are syntactically valid but project-non-compliant.
+
+**Workflow Implications:**
+
+⚠️ **For Template Generator (Future):**
+- Should emit forge-vhdl compliant example FSM
+- Or remove FSM example entirely (just empty architecture)
+- Or add comment: "⚠️ Example uses enums - replace with std_logic_vector per forge-vhdl standards"
+
+✅ **For P2 Implementation:**
+- Recognized the issue
+- Replaced entirely with compliant std_logic_vector states
+- Followed agent spec correctly
+
+**Recommended Fix:**
+Update template generator to emit:
+```vhdl
+-- FSM States (6-bit encoding per forge-vhdl standards)
+-- See: libs/forge-vhdl/docs/VHDL_CODING_STANDARDS.md
+constant STATE_IDLE   : std_logic_vector(5 downto 0) := "000000";
+constant STATE_ACTIVE : std_logic_vector(5 downto 0) := "000001";
+signal state, next_state : std_logic_vector(5 downto 0);
+```
+
+**Status:** ✅ NOTED - P2 implementation uses correct pattern
+
+---
+
+### 🟡 KINK #9: Agent Spec vs Generated Files Filename Mismatch
+
+**Discovered:** 2025-11-05 (During P2 - File Creation)
+
+**Problem:**
+Conflicting filenames between agent specification and generated code:
+
+**Agent Spec Says:**
+`bpd/agents/vhdl-fsm-implementation/agent.md` line 69:
+```markdown
+1. **FSM Implementation:** `bpd/bpd-vhdl/src/fi_probe_interface.vhd`
+```
+
+**Generated Shim Expects:**
+`bpd/bpd-specs/generated/basic_probe_driver_custom_inst_shim.vhd` line 152:
+```vhdl
+MAIN_INST: entity WORK.basic_probe_driver_custom_inst_main
+```
+
+**Also:**
+- Handoff doc: `WEB-AI-P2-HANDOFF.md` says `basic_probe_driver_custom_inst_main.vhd`
+- Old file exists: `fi_probe_interface.vhd.old_pre_yaml`
+
+**Root Cause:**
+- Agent spec was written referencing old naming (`fi_probe_interface`)
+- Code generator uses new naming (`basic_probe_driver_custom_inst_main`)
+- Documentation not updated to match
+
+**Decision Made:**
+Created file: `bpd/bpd-vhdl/src/basic_probe_driver_custom_inst_main.vhd`
+
+**Rationale:**
+- This is what the generated shim instantiates (line 152)
+- Handoff doc matches this name
+- More descriptive (includes app name)
+- Old file is archived (.old_pre_yaml suffix)
+
+**Impact:**
+- **Low** - P2 implementation complete with correct filename
+- **Medium** - Agent spec is misleading for future sessions
+- **High** - Inconsistency could confuse automation
+
+**Recommended Fix:**
+Update `bpd/agents/vhdl-fsm-implementation/agent.md` line 69:
+```markdown
+1. **FSM Implementation:** `bpd/bpd-vhdl/src/basic_probe_driver_custom_inst_main.vhd`
+   - Entity name: `basic_probe_driver_custom_inst_main`
+   - Note: Old `fi_probe_interface.vhd` archived as `.old_pre_yaml`
+```
+
+**Status:** ✅ RESOLVED - Used generated shim's expected filename
+
+---
+
+**Next Kink ID:** #10
+**Status:** P2 implementation complete - FSM written following forge-vhdl standards, kinks documented
