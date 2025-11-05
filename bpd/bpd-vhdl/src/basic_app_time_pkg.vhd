@@ -77,11 +77,18 @@ package body basic_app_time_pkg is
         time_s      : unsigned(15 downto 0);
         clk_freq_hz : integer
     ) return unsigned is
-        variable cycles : unsigned(31 downto 0);
     begin
         -- cycles = time_s * clk_freq_hz
-        cycles := resize(time_s, 32) * to_unsigned(clk_freq_hz, 32);
-        return cycles;
+        -- Use simple cast - let VHDL handle it
+        -- For typical values (time_s up to 65535 s, clk_freq_hz = 125 MHz),
+        -- result fits in 47 bits, well within unsigned capacity
+        if time_s = 0 then
+            return to_unsigned(0, 32);
+        else
+            -- Convert to integer, multiply, convert back
+            -- This avoids GHDL bound checking issues with unsigned*integer
+            return to_unsigned(to_integer(time_s) * clk_freq_hz, 32);
+        end if;
     end function s_to_cycles;
 
     ----------------------------------------------------------------------------
@@ -91,12 +98,14 @@ package body basic_app_time_pkg is
         time_us     : unsigned(23 downto 0);
         clk_freq_hz : integer
     ) return unsigned is
-        variable cycles : unsigned(31 downto 0);
     begin
         -- cycles = (time_us * clk_freq_hz) / 1_000_000
         -- Simplified: time_us * (clk_freq_hz / 1_000_000)
-        cycles := resize(time_us, 32) * to_unsigned(clk_freq_hz / 1000000, 32);
-        return cycles;
+        if time_us = 0 then
+            return to_unsigned(0, 32);
+        else
+            return to_unsigned(to_integer(time_us) * (clk_freq_hz / 1000000), 32);
+        end if;
     end function us_to_cycles;
 
     ----------------------------------------------------------------------------
@@ -106,13 +115,14 @@ package body basic_app_time_pkg is
         time_ns     : unsigned(15 downto 0);
         clk_freq_hz : integer
     ) return unsigned is
-        variable cycles : unsigned(31 downto 0);
     begin
         -- cycles = (time_ns * clk_freq_hz) / 1_000_000_000
         -- At 125 MHz: 1 cycle = 8 ns, so ns / 8 = cycles
-        -- Simplified: time_ns * (clk_freq_hz / 1_000_000_000)
-        cycles := resize(time_ns, 32) * to_unsigned(clk_freq_hz / 1000000000, 32);
-        return cycles;
+        if time_ns = 0 then
+            return to_unsigned(0, 32);
+        else
+            return to_unsigned((to_integer(time_ns) * clk_freq_hz) / 1000000000, 32);
+        end if;
     end function ns_to_cycles;
 
     ----------------------------------------------------------------------------
@@ -122,11 +132,13 @@ package body basic_app_time_pkg is
         time_ns     : unsigned(31 downto 0);
         clk_freq_hz : integer
     ) return unsigned is
-        variable cycles : unsigned(31 downto 0);
     begin
         -- cycles = (time_ns * clk_freq_hz) / 1_000_000_000
-        cycles := time_ns * to_unsigned(clk_freq_hz / 1000000000, 32);
-        return cycles;
+        if time_ns = 0 then
+            return to_unsigned(0, 32);
+        else
+            return to_unsigned((to_integer(time_ns) * clk_freq_hz) / 1000000000, 32);
+        end if;
     end function ns_to_cycles_32;
 
 end package body basic_app_time_pkg;
