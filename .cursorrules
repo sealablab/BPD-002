@@ -1,0 +1,56 @@
+# Cursor Rules for BPD-002
+# 
+# This repository uses Progressive Disclosure Architecture (PDA) for token-efficient navigation.
+# Cursor will automatically load these rules when working in this repository.
+
+## Navigation Pattern
+
+This codebase follows a **three-tier documentation pattern** optimized for efficient context loading:
+
+**Tier 1: llms.txt files** (~500 tokens) - Quick reference, component catalog
+**Tier 2: CLAUDE.md/CURSOR.md files** (~2-5k tokens) - Architecture, design rationale
+**Tier 3: Source code** - Implementation details (only load when coding)
+
+## Core Instructions
+
+1. **Always start with Tier 1** - Read `llms.txt` at repository root first
+2. **Check git submodules** - Verify `libs/` and `tools/` directories exist
+   - If missing, run: `git submodule update --init --recursive`
+3. **Never guess** - Always read authoritative documentation first
+4. **Load progressively** - Start minimal, expand as needed
+5. **Trust authoritative sources** - The four submodules are sources of truth:
+   - `libs/moku-models/llms.txt` - Moku platform specs
+   - `libs/riscure-models/llms.txt` - DS1120A probe specs
+   - `libs/forge-vhdl/llms.txt` - VHDL utilities
+   - `tools/forge-codegen/llms.txt` - Code generator
+
+## Context Decision Tree
+
+**Quick question?** → Load Tier 1: `llms.txt` files
+**Design question?** → Load Tier 1 + 2: `llms.txt` + `CLAUDE.md` or `CURSOR.md`
+**Implementation?** → Load Tier 1 + 2 + 3: `llms.txt` + design docs + source code
+
+## Authoritative Sources
+
+**Never infer or guess:**
+- Platform clock frequencies → Read `libs/moku-models/llms.txt`
+- Probe voltage ranges → Read `libs/riscure-models/llms.txt`
+- VHDL type system → Read `tools/forge-codegen/llms.txt`
+- Voltage domain utilities → Read `libs/forge-vhdl/llms.txt`
+
+## Component Structure
+
+- **Application code:** `bpd/` (bpd-core, bpd-drivers, bpd-vhdl)
+- **Platform specs:** `libs/` (git submodules - authoritative sources)
+- **Development tools:** `tools/` (git submodules)
+
+Each component has: `llms.txt` → `CLAUDE.md` → source code
+
+## For More Details
+
+- **Context management:** `.claude/shared/CONTEXT_MANAGEMENT.md`
+- **AI navigation:** `HUMAN_AI_JUMPSTART.md`
+- **Cursor-specific:** `CURSOR.md` (this repository)
+
+Begin by reading `/llms.txt` to understand the repository structure.
+
