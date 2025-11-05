@@ -10,8 +10,8 @@ Run codegen from the repository root:
 ```bash
 UV_CACHE_DIR=.uv-cache PYTHONPATH=tools/forge-codegen \
 uv run python -m forge_codegen.generator.codegen \
-    bpd/specs/basic_probe_driver.yaml \
-    --output-dir bpd/specs/generated \
+    bpd/bpd-specs/basic_probe_driver.yaml \
+    --output-dir bpd/bpd-specs/generated \
     --template-dir tools/forge-codegen/forge_codegen/templates
 ```
 
