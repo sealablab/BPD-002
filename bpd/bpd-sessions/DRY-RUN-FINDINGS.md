@@ -211,7 +211,63 @@ For Phase P3 (CocoTB integration testing), we need to wrap the entire system (FS
 - Include wrapper in YAML → VHDL → Test workflow
 - Add wrapper compliance checks to validation
 
-**Status:** 🔍 Investigation needed in P3
+**Status:** ✅ RESOLVED - User provided authoritative interface
+
+**Resolution:** (2025-11-05, during P2 phase)
+
+User provided the **SimpleCustomInstrument** entity definition, which is the wrapper interface that Moku cloud compiler expects:
+
+```vhdl
+entity SimpleCustomInstrument is
+    Port (
+        Clk   : in std_logic;
+        Reset : in std_logic;
+
+        -- ADC Inputs (from Moku analog inputs)
+        InputA : in signed(15 downto 0);
+        InputB : in signed(15 downto 0);
+        InputC : in signed(15 downto 0);
+
+        -- DAC Outputs (to Moku analog outputs)
+        OutputA : out signed(15 downto 0);
+        OutputB : out signed(15 downto 0);
+        OutputC : out signed(15 downto 0);
+
+        -- Control Registers (CR0-CR15)
+        Control0  : in std_logic_vector(31 downto 0);
+        Control1  : in std_logic_vector(31 downto 0);
+        -- ... through ...
+        Control15 : in std_logic_vector(31 downto 0)
+    );
+end SimpleCustomInstrument;
+```
+
+**Key Findings:**
+
+1. **Register Mapping:**
+   - CR0-CR5: Reserved for VOLO control system
+   - CR6-CR12: Application registers (our 13 YAML fields)
+   - CR13-CR15: Unused
+   - Generated shim maps Control6-12 → app_reg_6-12 → typed signals
+
+2. **Architecture Layers:**
+   ```
+   SimpleCustomInstrument (top-level wrapper)
+       └─ instantiates → basic_probe_driver_custom_inst_shim.vhd
+           └─ instantiates → basic_probe_driver_custom_inst_main.vhd (FSM)
+   ```
+
+3. **For P2 (VHDL FSM):**
+   - Implement FSM in `basic_probe_driver_custom_inst_main.vhd`
+   - Shim already handles Control→app_reg→typed signal mapping
+   - No need to modify shim (generated, read-only)
+
+4. **For P3 (CocoTB Testing):**
+   - Create SimpleCustomInstrument wrapper
+   - Wire Control6-12 to shim's app_reg_6-12 inputs
+   - This becomes the DUT for CocoTB tests
+
+**P2 Action:** Continue with FSM implementation in `_main.vhd` template.
 
 ---
 
