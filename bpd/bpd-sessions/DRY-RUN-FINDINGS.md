@@ -378,6 +378,100 @@ bpd/bpd-sessions/
 
 ---
 
-**Next Kink ID:** #3
-**Status:** Active - continuing dry-run
+### 🟢 KINK #3: Python Layer Had No Register Definitions (RESOLVED)
+
+**Discovered:** 2025-11-05 (During P1 - Python Register Alignment)
+
+**Problem:**
+The existing Python codebase (`bpd-core`, `bpd-drivers`, `bpd-examples`) had **no implementation of the 13 YAML register fields**. The code only provided:
+- Generic probe interface (`set_voltage`, `set_pulse_width`, `arm`, etc.)
+- Basic validation helpers
+- DS1120A driver stub
+
+**Missing:**
+- All 13 register field definitions from `basic_probe_driver.yaml`
+- Validation logic for YAML-specified ranges
+- Unit conversion helpers (mV, ns, μs, s ↔ hardware)
+- Examples demonstrating full register interface
+
+**Root Cause:**
+The Python layer was created as a generic probe abstraction before the YAML spec was finalized with specific register fields.
+
+**Resolution (P1 Phase):**
+Created complete Python implementation:
+
+**Files Created:**
+- `bpd/bpd-core/src/bpd_core/registers.py` - All 13 register fields with validation
+- `bpd/bpd-examples/basic_probe_driver_example.py` - Comprehensive example
+
+**Files Modified:**
+- `bpd/bpd-core/src/bpd_core/__init__.py` - Export `BasicProbeDriverRegisters`
+- `bpd/bpd-core/src/bpd_core/validation.py` - Add unit conversion helpers
+
+**Implementation Details:**
+
+1. **Register Class:** `BasicProbeDriverRegisters`
+   - All 13 fields as properties with getters/setters
+   - Validation enforces YAML min/max ranges
+   - Defaults match YAML `default_value` exactly
+   - Read-only `probe_monitor_feedback` (hardware updates via internal method)
+
+2. **Validation:**
+   - Voltage ranges: -5000 to 5000 mV
+   - Timing ranges per YAML spec (ns, μs, s)
+   - Type checking (bool fields reject non-bool)
+   - Clear error messages with actual values
+
+3. **Unit Conversion Helpers:**
+   - `mV_to_volts()` / `volts_to_mV()`
+   - `ns_to_cycles()` / `cycles_to_ns()`
+   - `us_to_cycles()` / `cycles_to_us()`
+   - `s_to_cycles()` / `cycles_to_s()`
+   - All assume 125 MHz clock (configurable parameter)
+
+4. **Example Code:**
+   - Demonstrates all 13 fields grouped by purpose
+   - Shows validation in action (catches invalid values)
+   - Includes unit conversion examples
+   - Exports full register dump via `to_dict()`
+
+**Workflow Implications:**
+
+✅ **GOOD NEWS:**
+- Python layer now 100% aligned with YAML spec
+- P2 agent can reference this as the API contract
+- Clear boundary: Python uses real units (mV, ns), VHDL does conversion
+
+⚠️ **DESIGN DECISIONS:**
+
+1. **Unit Boundary:**
+   - **Decision:** Python keeps real units (mV, ns, μs, s)
+   - **Rationale:** More intuitive for users, matches YAML
+   - **Conversion:** Happens at hardware boundary (VHDL FSM)
+
+2. **Read-Only Feedback:**
+   - **Decision:** `probe_monitor_feedback` has no public setter
+   - **Rationale:** This is an output from hardware
+   - **Implementation:** Internal `_set_probe_monitor_feedback()` for hardware updates
+
+3. **Validation Strictness:**
+   - **Decision:** Raise exceptions on invalid values
+   - **Rationale:** Fail fast, prevent unsafe hardware configs
+   - **Alternative considered:** Clamp values silently (rejected - hides errors)
+
+**Questions for P2 (VHDL Agent):**
+
+1. **Clock Frequency:** Assuming 125 MHz (Moku default) - is this correct for all platforms?
+2. **Unit Conversion:** Should VHDL FSM use `ns/μs/s` directly or convert to cycles?
+3. **Register Interface:** How do 13 fields map to generated `*_shim.vhd` ports?
+4. **Read-Only Registers:** How does hardware write to `probe_monitor_feedback`?
+
+**Commit:** f1610c5 - "P1: Align Python layer with basic_probe_driver.yaml spec"
+
+**Status:** ✅ P1 COMPLETE - Ready for P2 handoff
+
+---
+
+**Next Kink ID:** #4
+**Status:** Active - P1 complete, ready for P2 (VHDL FSM implementation)
 
