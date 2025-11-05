@@ -2,6 +2,18 @@
 
 Multi-vendor fault injection probe integration framework for Moku platform development.
 
+## Development Workflow
+
+This project uses **session-based branching** for organized development:
+
+1. Start from `main` branch
+2. Read `bpd/bpd-sessions/NEXT-SESSION.md` for instructions
+3. Create dated branch: `session/YYYY-MM-DD-description`
+4. Work, commit, test
+5. Merge to `main` and delete session branch
+
+This keeps the repository clean while maintaining clear session history and goals. See [bpd/bpd-sessions/NEXT-SESSION.md](bpd/bpd-sessions/NEXT-SESSION.md) for the complete workflow template.
+
 ## What is BPD-002?
 
 **BPD-002** is a complete probe driver framework for integrating fault injection probes (EMFI, laser FI, RF, voltage glitching) with Moku FPGA platforms (Go/Lab/Pro/Delta). Uses composable git submodules for: type system → code generation → VHDL implementation → hardware deployment.
