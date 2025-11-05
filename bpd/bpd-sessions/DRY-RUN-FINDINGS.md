@@ -696,6 +696,268 @@ git push origin --delete claude/<name>-<session_id>
 
 ---
 
-**Next Kink ID:** #5
-**Status:** Active - P1 complete, ready for P2 (VHDL FSM implementation)
+### 🟢 KINK #5: GHDL Installation Blocker for VHDL Testing (RESOLVED)
+
+**Discovered:** 2025-11-05 (During P2 preparation)
+
+**Problem:**
+GHDL (VHDL compiler/simulator) is **required** for P2 (VHDL FSM implementation) and P3 (CocoTB testing), but it's not installable via pip/uv. This is a **system-level dependency** that blocks VHDL development workflow.
+
+**Why This is a Blocker:**
+- CocoTB (already in dependencies) needs GHDL backend to simulate VHDL
+- Cannot compile/test VHDL code without GHDL
+- Not documented anywhere in project setup
+- New developers would hit this wall immediately
+
+**Root Cause:**
+GHDL is a compiled binary (C++/Ada) with system dependencies:
+- Requires LLVM or GCC compiler infrastructure
+- Platform-specific builds (x86, ARM)
+- Too large/complex for PyPI distribution
+- Must be installed via system package manager
+
+**Impact on Workflow:**
+```
+P1: Python ✅ (works fine)
+    ↓
+P2: VHDL FSM ❌ (blocked without GHDL)
+    ↓
+P3: CocoTB Tests ❌ (blocked without GHDL)
+```
+
+---
+
+## ✅ RESOLUTION: Comprehensive GHDL Setup Solution
+
+### Step 1: Installation Documentation
+
+**Created:** `docs/GHDL_SETUP.md`
+
+**Contents:**
+- Quick install command (copy-paste ready)
+- Backend options explained (LLVM/mcode/GCC)
+- CocoTB integration guide
+- Troubleshooting common issues
+- CI/CD examples for GitHub Actions
+
+**Quick Install (Ubuntu/Debian):**
+```bash
+sudo apt-get update
+sudo apt-get install -y ghdl-llvm  # Recommended: LLVM backend
+```
+
+**Verify Installation:**
+```bash
+ghdl --version
+# Should show: GHDL 2.0.0 ... llvm code generator
+```
+
+---
+
+### Step 2: Project Integration
+
+**Modified:** `pyproject.toml`
+
+**Added optional dependency group:**
+```toml
+# VHDL SIMULATION EXTRAS
+# NOTE: Requires GHDL system package (not installable via pip)
+# Install GHDL: sudo apt-get install ghdl-llvm
+# See: docs/GHDL_SETUP.md
+
+[project.optional-dependencies.vhdl-dev]
+pytest-cov = ">=4.0.0"  # Coverage for VHDL test Python wrappers
+```
+
+**Why optional-dependencies?**
+- Clearly separates Python deps from system deps
+- Documents that GHDL is required but not pip-installable
+- Points developers to installation guide
+- Follows uv best practices for "extras"
+
+**Usage:**
+```bash
+# Install with VHDL development extras
+uv sync --extra vhdl-dev
+```
+
+---
+
+### Step 3: Developer Experience Enhancement
+
+**Modified:** `setup.sh`
+
+**Added GHDL check:**
+```bash
+# Check for GHDL (optional, for VHDL testing)
+if ! command_exists ghdl; then
+    echo "⚠️  GHDL not found - VHDL simulation tests will be skipped"
+    echo "   Install with: sudo apt-get install ghdl-llvm"
+    echo "   See: docs/GHDL_SETUP.md for full setup guide"
+    echo ""
+fi
+```
+
+**Behavior:**
+- Non-blocking warning (doesn't exit)
+- Clear install command provided
+- Points to comprehensive docs
+- Developers know immediately what's missing
+
+---
+
+### Step 4: Workflow Integration
+
+**How It Works Now:**
+
+1. **New Developer Setup:**
+   ```bash
+   ./setup.sh
+   # Sees GHDL warning if not installed
+   # Follows link to docs/GHDL_SETUP.md
+   # Runs: sudo apt-get install ghdl-llvm
+   # Re-runs ./setup.sh (warning gone)
+   ```
+
+2. **VHDL Development:**
+   ```bash
+   # Compile VHDL
+   ghdl -a --std=08 my_design.vhd
+
+   # Run CocoTB tests
+   cd bpd/bpd-vhdl/tests
+   pytest test_fi_interface.py -v
+   ```
+
+3. **CI/CD (GitHub Actions):**
+   ```yaml
+   - name: Install GHDL
+     run: sudo apt-get install -y ghdl-llvm
+
+   - name: Run VHDL tests
+     run: pytest bpd/bpd-vhdl/tests/ -v
+   ```
+
+---
+
+## Key Design Decisions
+
+### Decision 1: Optional Dependency Group (Not Hard Requirement)
+
+**Rationale:**
+- Python developers may not need VHDL testing
+- System package can't be enforced via pip/uv
+- Better to document clearly than fail mysteriously
+
+**Alternative Considered:** Hard requirement
+- **Rejected:** Would block all `uv sync` commands
+- Better to warn than block
+
+### Decision 2: LLVM Backend (Recommended)
+
+**Options:**
+1. `ghdl-llvm` ← **Recommended**
+2. `ghdl-mcode` (faster install, slower sim)
+3. `ghdl-gcc` (maximum compatibility, slowest)
+
+**Rationale:**
+- LLVM backend: Good balance of speed/compatibility
+- Most common in modern FPGA workflows
+- Well-tested with CocoTB
+
+### Decision 3: Documentation-First Approach
+
+**Strategy:**
+- Comprehensive `docs/GHDL_SETUP.md` as single source of truth
+- `pyproject.toml` points to it
+- `setup.sh` points to it
+- README (future) will point to it
+
+**Rationale:**
+- Easier to maintain one detailed doc
+- Developers need troubleshooting info
+- CI/CD examples valuable for automation
+
+---
+
+## For Future Automation
+
+**Potential Enhancements:**
+
+1. **Docker Container:**
+   ```dockerfile
+   FROM ubuntu:22.04
+   RUN apt-get install -y ghdl-llvm python3 uv
+   # Pre-baked environment with GHDL
+   ```
+
+2. **Devcontainer (VS Code):**
+   ```json
+   {
+     "image": "bpd-dev:latest",
+     "features": {
+       "ghcr.io/devcontainers/features/ghdl:1": {}
+     }
+   }
+   ```
+
+3. **Automated Detection:**
+   ```python
+   # In test conftest.py
+   import shutil
+   import pytest
+
+   def pytest_configure(config):
+       if not shutil.which("ghdl"):
+           pytest.skip("GHDL not found - skipping VHDL tests")
+   ```
+
+---
+
+## Verification Checklist
+
+After following these steps, verify:
+
+- [ ] `ghdl --version` shows LLVM backend
+- [ ] `./setup.sh` runs without GHDL warning
+- [ ] `uv sync --extra vhdl-dev` succeeds
+- [ ] CocoTB can import: `python -c "import cocotb; print(cocotb.__version__)"`
+- [ ] Can compile test VHDL: `ghdl -a --std=08 test.vhd`
+
+**Test VHDL compilation:**
+```bash
+echo "entity test is end test;" > test.vhd
+ghdl -a --std=08 test.vhd && echo "✅ GHDL works!"
+rm test.vhd test.o
+```
+
+---
+
+## Documentation Files Created
+
+**Commit:** `8700f5a` - "Add GHDL installation documentation and setup checks"
+
+**Files:**
+1. `docs/GHDL_SETUP.md` (254 lines)
+   - Complete installation guide
+   - Multiple backend options
+   - Troubleshooting section
+   - CI/CD integration examples
+
+2. `pyproject.toml` (modified)
+   - Added `[project.optional-dependencies.vhdl-dev]`
+   - Clear comment about system requirement
+
+3. `setup.sh` (modified)
+   - Added GHDL detection
+   - Helpful install message
+
+**Status:** ✅ RESOLVED - Ready for P2 VHDL development
+
+**Next:** Can proceed with FSM implementation using GHDL for compilation checks.
+
+---
+
+**Next Kink ID:** #6
+**Status:** P2 in progress - GHDL blocker resolved, ready for FSM implementation
 
