@@ -211,7 +211,63 @@ For Phase P3 (CocoTB integration testing), we need to wrap the entire system (FS
 - Include wrapper in YAML → VHDL → Test workflow
 - Add wrapper compliance checks to validation
 
-**Status:** 🔍 Investigation needed in P3
+**Status:** ✅ RESOLVED - User provided authoritative interface
+
+**Resolution:** (2025-11-05, during P2 phase)
+
+User provided the **SimpleCustomInstrument** entity definition, which is the wrapper interface that Moku cloud compiler expects:
+
+```vhdl
+entity SimpleCustomInstrument is
+    Port (
+        Clk   : in std_logic;
+        Reset : in std_logic;
+
+        -- ADC Inputs (from Moku analog inputs)
+        InputA : in signed(15 downto 0);
+        InputB : in signed(15 downto 0);
+        InputC : in signed(15 downto 0);
+
+        -- DAC Outputs (to Moku analog outputs)
+        OutputA : out signed(15 downto 0);
+        OutputB : out signed(15 downto 0);
+        OutputC : out signed(15 downto 0);
+
+        -- Control Registers (CR0-CR15)
+        Control0  : in std_logic_vector(31 downto 0);
+        Control1  : in std_logic_vector(31 downto 0);
+        -- ... through ...
+        Control15 : in std_logic_vector(31 downto 0)
+    );
+end SimpleCustomInstrument;
+```
+
+**Key Findings:**
+
+1. **Register Mapping:**
+   - CR0-CR5: Reserved for VOLO control system
+   - CR6-CR12: Application registers (our 13 YAML fields)
+   - CR13-CR15: Unused
+   - Generated shim maps Control6-12 → app_reg_6-12 → typed signals
+
+2. **Architecture Layers:**
+   ```
+   SimpleCustomInstrument (top-level wrapper)
+       └─ instantiates → basic_probe_driver_custom_inst_shim.vhd
+           └─ instantiates → basic_probe_driver_custom_inst_main.vhd (FSM)
+   ```
+
+3. **For P2 (VHDL FSM):**
+   - Implement FSM in `basic_probe_driver_custom_inst_main.vhd`
+   - Shim already handles Control→app_reg→typed signal mapping
+   - No need to modify shim (generated, read-only)
+
+4. **For P3 (CocoTB Testing):**
+   - Create SimpleCustomInstrument wrapper
+   - Wire Control6-12 to shim's app_reg_6-12 inputs
+   - This becomes the DUT for CocoTB tests
+
+**P2 Action:** Continue with FSM implementation in `_main.vhd` template.
 
 ---
 
@@ -378,6 +434,530 @@ bpd/bpd-sessions/
 
 ---
 
-**Next Kink ID:** #3
-**Status:** Active - continuing dry-run
+### 🟢 KINK #3: Python Layer Had No Register Definitions (RESOLVED)
+
+**Discovered:** 2025-11-05 (During P1 - Python Register Alignment)
+
+**Problem:**
+The existing Python codebase (`bpd-core`, `bpd-drivers`, `bpd-examples`) had **no implementation of the 13 YAML register fields**. The code only provided:
+- Generic probe interface (`set_voltage`, `set_pulse_width`, `arm`, etc.)
+- Basic validation helpers
+- DS1120A driver stub
+
+**Missing:**
+- All 13 register field definitions from `basic_probe_driver.yaml`
+- Validation logic for YAML-specified ranges
+- Unit conversion helpers (mV, ns, μs, s ↔ hardware)
+- Examples demonstrating full register interface
+
+**Root Cause:**
+The Python layer was created as a generic probe abstraction before the YAML spec was finalized with specific register fields.
+
+**Resolution (P1 Phase):**
+Created complete Python implementation:
+
+**Files Created:**
+- `bpd/bpd-core/src/bpd_core/registers.py` - All 13 register fields with validation
+- `bpd/bpd-examples/basic_probe_driver_example.py` - Comprehensive example
+
+**Files Modified:**
+- `bpd/bpd-core/src/bpd_core/__init__.py` - Export `BasicProbeDriverRegisters`
+- `bpd/bpd-core/src/bpd_core/validation.py` - Add unit conversion helpers
+
+**Implementation Details:**
+
+1. **Register Class:** `BasicProbeDriverRegisters`
+   - All 13 fields as properties with getters/setters
+   - Validation enforces YAML min/max ranges
+   - Defaults match YAML `default_value` exactly
+   - Read-only `probe_monitor_feedback` (hardware updates via internal method)
+
+2. **Validation:**
+   - Voltage ranges: -5000 to 5000 mV
+   - Timing ranges per YAML spec (ns, μs, s)
+   - Type checking (bool fields reject non-bool)
+   - Clear error messages with actual values
+
+3. **Unit Conversion Helpers:**
+   - `mV_to_volts()` / `volts_to_mV()`
+   - `ns_to_cycles()` / `cycles_to_ns()`
+   - `us_to_cycles()` / `cycles_to_us()`
+   - `s_to_cycles()` / `cycles_to_s()`
+   - All assume 125 MHz clock (configurable parameter)
+
+4. **Example Code:**
+   - Demonstrates all 13 fields grouped by purpose
+   - Shows validation in action (catches invalid values)
+   - Includes unit conversion examples
+   - Exports full register dump via `to_dict()`
+
+**Workflow Implications:**
+
+✅ **GOOD NEWS:**
+- Python layer now 100% aligned with YAML spec
+- P2 agent can reference this as the API contract
+- Clear boundary: Python uses real units (mV, ns), VHDL does conversion
+
+⚠️ **DESIGN DECISIONS:**
+
+1. **Unit Boundary:**
+   - **Decision:** Python keeps real units (mV, ns, μs, s)
+   - **Rationale:** More intuitive for users, matches YAML
+   - **Conversion:** Happens at hardware boundary (VHDL FSM)
+
+2. **Read-Only Feedback:**
+   - **Decision:** `probe_monitor_feedback` has no public setter
+   - **Rationale:** This is an output from hardware
+   - **Implementation:** Internal `_set_probe_monitor_feedback()` for hardware updates
+
+3. **Validation Strictness:**
+   - **Decision:** Raise exceptions on invalid values
+   - **Rationale:** Fail fast, prevent unsafe hardware configs
+   - **Alternative considered:** Clamp values silently (rejected - hides errors)
+
+**Questions for P2 (VHDL Agent):**
+
+1. **Clock Frequency:** Assuming 125 MHz (Moku default) - is this correct for all platforms?
+2. **Unit Conversion:** Should VHDL FSM use `ns/μs/s` directly or convert to cycles?
+3. **Register Interface:** How do 13 fields map to generated `*_shim.vhd` ports?
+4. **Read-Only Registers:** How does hardware write to `probe_monitor_feedback`?
+
+**Commit:** f1610c5 - "P1: Align Python layer with basic_probe_driver.yaml spec"
+
+**Status:** ✅ P1 COMPLETE - Ready for P2 handoff
+
+---
+
+### 🟡 KINK #4: Claude Code Web Sandbox Branch Isolation (WORKFLOW)
+
+**Discovered:** 2025-11-05 (During P1 git push attempt)
+
+**Problem:**
+Claude Code web edition uses a **sandbox git proxy** that enforces branch naming conventions. This caused confusion when trying to push commits from the "natural" session branch.
+
+**Symptoms:**
+- User created branch: `session/2025-11-05-integration-testing-claude-web-ai`
+- Claude Code works on this branch fine (commits succeed)
+- `git push` fails with **HTTP 403 error**
+- Confusing because branch exists on remote
+
+**Root Cause:**
+Claude Code web sandbox creates an **isolation layer** for safety:
+- Sandbox allows only branches matching pattern: `claude/<name>-<session_id>`
+- Session ID is auto-generated (e.g., `011CUq6RLYd9Bum3CJ6SbCyL`)
+- User-created branches (e.g., `session/*`) can't push directly
+- Remote proxy at `127.0.0.1:<port>` enforces this
+
+**The Sandbox Setup:**
+```
+User's GitHub Repo (sealablab/BPD-002)
+          ↓ (cloned into sandbox)
+Local Proxy (127.0.0.1:<port>/git/sealablab/BPD-002)
+          ↓ (branch filtering)
+Claude's Workspace
+   - Can read: any branch
+   - Can commit: any local branch
+   - Can push: ONLY claude/<name>-<session_id>
+```
+
+**What We Encountered:**
+
+1. **User's Intent:**
+   - Work on `session/2025-11-05-integration-testing-claude-web-ai`
+   - This branch has all the planning docs and context
+   - Natural choice for the session
+
+2. **Sandbox Reality:**
+   - Sandbox **also** created `claude/integration-testing-web-ai-011CUq6RLYd9Bum3CJ6SbCyL`
+   - Claude can read/work on ANY branch
+   - But can only **push** to the `claude/` branch
+
+3. **Initial Attempt:**
+   ```bash
+   git push -u origin session/2025-11-05-integration-testing-claude-web-ai
+   # ERROR: HTTP 403
+   ```
+
+4. **The Fix:**
+   ```bash
+   # Switch to the claude/ branch
+   git checkout claude/integration-testing-web-ai-011CUq6RLYd9Bum3CJ6SbCyL
+
+   # Cherry-pick commits from session branch
+   git cherry-pick f1610c5 c8bea21
+
+   # Now push succeeds
+   git push -u origin claude/integration-testing-web-ai-011CUq6RLYd9Bum3CJ6SbCyL
+   # ✓ SUCCESS
+   ```
+
+**Workflow Implications:**
+
+⚠️ **For Users (Outside World):**
+
+**Strategy 1: Work on session branch, sync later (RECOMMENDED)**
+- Let Claude work on your meaningful branch (`session/*`, `feature/*`, etc.)
+- Commits happen locally on that branch
+- At end of session: **YOU** handle merging to main/desired branch
+- Pros: Clean history, meaningful branch names
+- Cons: User must manually handle git after session
+
+**Strategy 2: Accept the claude/ branch**
+- Let Claude work directly on `claude/<name>-<session_id>`
+- Commits auto-push during session
+- After session: merge `claude/*` branch to main
+- Pros: Auto-push works, no manual git
+- Cons: Opaque branch names, harder to track history
+
+**Strategy 3: Hybrid approach (what we did)**
+- Claude works on meaningful branch locally
+- At completion points, cherry-pick to `claude/` branch
+- Push the `claude/` branch for backup
+- User later merges from meaningful branch
+- Pros: Best of both worlds
+- Cons: Some manual git juggling
+
+⚠️ **For Claude (AI Agents):**
+
+**Detection:**
+When `git push` fails with 403:
+1. Check current branch name
+2. Look for `claude/<name>-<session_id>` branch
+3. Switch to that branch
+4. Cherry-pick recent commits
+5. Retry push
+
+**Better pattern:**
+```bash
+# At session start, detect the situation
+CURRENT_BRANCH=$(git branch --show-current)
+CLAUDE_BRANCH=$(git branch -a | grep 'claude/.*-[A-Za-z0-9]\{24\}$' | head -1 | sed 's/.*\///')
+
+if [[ "$CURRENT_BRANCH" != "$CLAUDE_BRANCH" ]]; then
+    echo "⚠️  Working on $CURRENT_BRANCH but can only push to $CLAUDE_BRANCH"
+    echo "Strategy: Commit locally, cherry-pick to $CLAUDE_BRANCH for push"
+fi
+```
+
+**Documentation Pattern:**
+```markdown
+## Git Workflow Note (Claude Code Web Edition)
+
+This session uses Claude Code web sandbox, which isolates pushes to:
+- Branch: `claude/integration-testing-web-ai-011CUq6RLYd9Bum3CJ6SbCyL`
+
+Work happens on: `session/2025-11-05-integration-testing-claude-web-ai`
+Commits synced to `claude/` branch for pushing.
+
+After session, user should merge from session branch (cleaner history).
+```
+
+**Why This Design Makes Sense:**
+
+1. **Safety:** Prevents Claude from pushing to `main` or other critical branches
+2. **Isolation:** Each session gets unique branch, easy to track/rollback
+3. **Audit Trail:** Session ID in branch name enables tracking
+4. **Collaboration:** Multiple concurrent sessions won't conflict
+
+**However, it creates UX friction:**
+- Branch names are opaque (session ID not meaningful)
+- Users must understand the isolation model
+- Extra git commands needed (cherry-pick, merge)
+
+**Recommendation for Future:**
+
+**For Repository Setup:**
+Add to repository root: `.claude-code/README.md`
+```markdown
+## Working with Claude Code Web Edition
+
+This repo may be accessed by Claude Code web sandbox.
+
+### Branch Naming
+- Sandbox pushes to: `claude/<name>-<session_id>`
+- Session IDs are auto-generated (24 char alphanumeric)
+
+### After Claude Session
+1. Review commits on `claude/<name>-<session_id>` branch
+2. Merge to main or feature branch as appropriate
+3. Delete `claude/` branch after merge (or keep for audit)
+
+### Branch Cleanup
+```bash
+# List all claude/ branches
+git branch -r | grep claude/
+
+# Delete merged claude/ branches
+git push origin --delete claude/<name>-<session_id>
+```
+```
+
+**Status:** ✅ WORKAROUND FOUND - Documented for future sessions
+
+---
+
+### 🟢 KINK #5: GHDL Installation Blocker for VHDL Testing (RESOLVED)
+
+**Discovered:** 2025-11-05 (During P2 preparation)
+
+**Problem:**
+GHDL (VHDL compiler/simulator) is **required** for P2 (VHDL FSM implementation) and P3 (CocoTB testing), but it's not installable via pip/uv. This is a **system-level dependency** that blocks VHDL development workflow.
+
+**Why This is a Blocker:**
+- CocoTB (already in dependencies) needs GHDL backend to simulate VHDL
+- Cannot compile/test VHDL code without GHDL
+- Not documented anywhere in project setup
+- New developers would hit this wall immediately
+
+**Root Cause:**
+GHDL is a compiled binary (C++/Ada) with system dependencies:
+- Requires LLVM or GCC compiler infrastructure
+- Platform-specific builds (x86, ARM)
+- Too large/complex for PyPI distribution
+- Must be installed via system package manager
+
+**Impact on Workflow:**
+```
+P1: Python ✅ (works fine)
+    ↓
+P2: VHDL FSM ❌ (blocked without GHDL)
+    ↓
+P3: CocoTB Tests ❌ (blocked without GHDL)
+```
+
+---
+
+## ✅ RESOLUTION: Comprehensive GHDL Setup Solution
+
+### Step 1: Installation Documentation
+
+**Created:** `docs/GHDL_SETUP.md`
+
+**Contents:**
+- Quick install command (copy-paste ready)
+- Backend options explained (LLVM/mcode/GCC)
+- CocoTB integration guide
+- Troubleshooting common issues
+- CI/CD examples for GitHub Actions
+
+**Quick Install (Ubuntu/Debian):**
+```bash
+sudo apt-get update
+sudo apt-get install -y ghdl-llvm  # Recommended: LLVM backend
+```
+
+**Verify Installation:**
+```bash
+ghdl --version
+# Should show: GHDL 2.0.0 ... llvm code generator
+```
+
+---
+
+### Step 2: Project Integration
+
+**Modified:** `pyproject.toml`
+
+**Added optional dependency group:**
+```toml
+# VHDL SIMULATION EXTRAS
+# NOTE: Requires GHDL system package (not installable via pip)
+# Install GHDL: sudo apt-get install ghdl-llvm
+# See: docs/GHDL_SETUP.md
+
+[project.optional-dependencies.vhdl-dev]
+pytest-cov = ">=4.0.0"  # Coverage for VHDL test Python wrappers
+```
+
+**Why optional-dependencies?**
+- Clearly separates Python deps from system deps
+- Documents that GHDL is required but not pip-installable
+- Points developers to installation guide
+- Follows uv best practices for "extras"
+
+**Usage:**
+```bash
+# Install with VHDL development extras
+uv sync --extra vhdl-dev
+```
+
+---
+
+### Step 3: Developer Experience Enhancement
+
+**Modified:** `setup.sh`
+
+**Added GHDL check:**
+```bash
+# Check for GHDL (optional, for VHDL testing)
+if ! command_exists ghdl; then
+    echo "⚠️  GHDL not found - VHDL simulation tests will be skipped"
+    echo "   Install with: sudo apt-get install ghdl-llvm"
+    echo "   See: docs/GHDL_SETUP.md for full setup guide"
+    echo ""
+fi
+```
+
+**Behavior:**
+- Non-blocking warning (doesn't exit)
+- Clear install command provided
+- Points to comprehensive docs
+- Developers know immediately what's missing
+
+---
+
+### Step 4: Workflow Integration
+
+**How It Works Now:**
+
+1. **New Developer Setup:**
+   ```bash
+   ./setup.sh
+   # Sees GHDL warning if not installed
+   # Follows link to docs/GHDL_SETUP.md
+   # Runs: sudo apt-get install ghdl-llvm
+   # Re-runs ./setup.sh (warning gone)
+   ```
+
+2. **VHDL Development:**
+   ```bash
+   # Compile VHDL
+   ghdl -a --std=08 my_design.vhd
+
+   # Run CocoTB tests
+   cd bpd/bpd-vhdl/tests
+   pytest test_fi_interface.py -v
+   ```
+
+3. **CI/CD (GitHub Actions):**
+   ```yaml
+   - name: Install GHDL
+     run: sudo apt-get install -y ghdl-llvm
+
+   - name: Run VHDL tests
+     run: pytest bpd/bpd-vhdl/tests/ -v
+   ```
+
+---
+
+## Key Design Decisions
+
+### Decision 1: Optional Dependency Group (Not Hard Requirement)
+
+**Rationale:**
+- Python developers may not need VHDL testing
+- System package can't be enforced via pip/uv
+- Better to document clearly than fail mysteriously
+
+**Alternative Considered:** Hard requirement
+- **Rejected:** Would block all `uv sync` commands
+- Better to warn than block
+
+### Decision 2: LLVM Backend (Recommended)
+
+**Options:**
+1. `ghdl-llvm` ← **Recommended**
+2. `ghdl-mcode` (faster install, slower sim)
+3. `ghdl-gcc` (maximum compatibility, slowest)
+
+**Rationale:**
+- LLVM backend: Good balance of speed/compatibility
+- Most common in modern FPGA workflows
+- Well-tested with CocoTB
+
+### Decision 3: Documentation-First Approach
+
+**Strategy:**
+- Comprehensive `docs/GHDL_SETUP.md` as single source of truth
+- `pyproject.toml` points to it
+- `setup.sh` points to it
+- README (future) will point to it
+
+**Rationale:**
+- Easier to maintain one detailed doc
+- Developers need troubleshooting info
+- CI/CD examples valuable for automation
+
+---
+
+## For Future Automation
+
+**Potential Enhancements:**
+
+1. **Docker Container:**
+   ```dockerfile
+   FROM ubuntu:22.04
+   RUN apt-get install -y ghdl-llvm python3 uv
+   # Pre-baked environment with GHDL
+   ```
+
+2. **Devcontainer (VS Code):**
+   ```json
+   {
+     "image": "bpd-dev:latest",
+     "features": {
+       "ghcr.io/devcontainers/features/ghdl:1": {}
+     }
+   }
+   ```
+
+3. **Automated Detection:**
+   ```python
+   # In test conftest.py
+   import shutil
+   import pytest
+
+   def pytest_configure(config):
+       if not shutil.which("ghdl"):
+           pytest.skip("GHDL not found - skipping VHDL tests")
+   ```
+
+---
+
+## Verification Checklist
+
+After following these steps, verify:
+
+- [ ] `ghdl --version` shows LLVM backend
+- [ ] `./setup.sh` runs without GHDL warning
+- [ ] `uv sync --extra vhdl-dev` succeeds
+- [ ] CocoTB can import: `python -c "import cocotb; print(cocotb.__version__)"`
+- [ ] Can compile test VHDL: `ghdl -a --std=08 test.vhd`
+
+**Test VHDL compilation:**
+```bash
+echo "entity test is end test;" > test.vhd
+ghdl -a --std=08 test.vhd && echo "✅ GHDL works!"
+rm test.vhd test.o
+```
+
+---
+
+## Documentation Files Created
+
+**Commit:** `8700f5a` - "Add GHDL installation documentation and setup checks"
+
+**Files:**
+1. `docs/GHDL_SETUP.md` (254 lines)
+   - Complete installation guide
+   - Multiple backend options
+   - Troubleshooting section
+   - CI/CD integration examples
+
+2. `pyproject.toml` (modified)
+   - Added `[project.optional-dependencies.vhdl-dev]`
+   - Clear comment about system requirement
+
+3. `setup.sh` (modified)
+   - Added GHDL detection
+   - Helpful install message
+
+**Status:** ✅ RESOLVED - Ready for P2 VHDL development
+
+**Next:** Can proceed with FSM implementation using GHDL for compilation checks.
+
+---
+
+**Next Kink ID:** #6
+**Status:** P2 in progress - GHDL blocker resolved, ready for FSM implementation
 
