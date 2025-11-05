@@ -27,7 +27,7 @@ fi
 # Check for GHDL (optional, for VHDL testing)
 if ! command_exists ghdl; then
     echo "⚠️  GHDL not found - VHDL simulation tests will be skipped"
-    echo "   Install with: sudo apt-get install ghdl-llvm"
+    echo "   Install with: sudo apt-get install ghdl-llvm (Linux) or brew install ghdl (macOS)"
     echo "   See: docs/GHDL_SETUP.md for full setup guide"
     echo ""
 fi

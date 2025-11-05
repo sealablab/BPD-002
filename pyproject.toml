@@ -29,6 +29,12 @@ dev = [
     "ruff>=0.1.0",          # Python linting
     "black>=24.0.0",        # Code formatting
 ]
+# NOTE: Requires GHDL system package (not installable via pip)
+# Install GHDL: sudo apt-get install ghdl-llvm (Linux) or brew install ghdl (macOS)
+# See: docs/GHDL_SETUP.md for full installation guide
+vhdl-dev = [
+    "pytest-cov>=4.0.0",  # Coverage for VHDL test Python wrappers
+]
 
 # ============================================================================
 # UV WORKSPACE CONFIGURATION
@@ -88,16 +94,3 @@ ignore = []
 [tool.black]
 line-length = 100
 target-version = ["py310", "py311", "py312"]
-
-# ============================================================================
-# VHDL SIMULATION EXTRAS
-# ============================================================================
-# NOTE: Requires GHDL system package (not installable via pip)
-# Install GHDL: sudo apt-get install ghdl-llvm
-# See: docs/GHDL_SETUP.md for full installation guide
-
-# Optional dependency group for VHDL development
-[project.optional-dependencies.vhdl-dev]
-# CocoTB already in base deps, add VHDL-specific Python tools
-pytest-cov = ">=4.0.0"  # Coverage for VHDL test Python wrappers
-
