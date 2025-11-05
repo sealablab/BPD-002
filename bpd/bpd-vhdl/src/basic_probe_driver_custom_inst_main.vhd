@@ -175,8 +175,8 @@ begin
     trig_out_duration_cycles       <= ns_to_cycles(trig_out_duration, CLK_FREQ_HZ);
     intensity_duration_cycles      <= ns_to_cycles(intensity_duration, CLK_FREQ_HZ);
     cooldown_interval_cycles       <= us_to_cycles(cooldown_interval, CLK_FREQ_HZ);
-    monitor_window_start_cycles    <= ns_to_cycles(monitor_window_start, CLK_FREQ_HZ);
-    monitor_window_duration_cycles <= ns_to_cycles(monitor_window_duration, CLK_FREQ_HZ);
+    monitor_window_start_cycles    <= ns_to_cycles_32(monitor_window_start, CLK_FREQ_HZ);
+    monitor_window_duration_cycles <= ns_to_cycles_32(monitor_window_duration, CLK_FREQ_HZ);
 
     ------------------------------------------------------------------------
     -- Edge Detector for fault_clear
