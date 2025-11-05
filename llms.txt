@@ -167,6 +167,11 @@
 
 "Probe voltage safety?" → Tier 1: libs/moku-models/llms.txt + libs/riscure-models/llms.txt
 
+### Codex Support
+
+- `.claude/shared/CODEX_SUPPORT.md` — Codex-specific navigation routine aligned with PDA (keep this in sync with `CONTEXT_MANAGEMENT.md`).
+- Use it alongside the decision tree above when tailoring workflows for GPT-5 Codex agents.
+
 ### Authoritative Sources
 
 **Always trust these libraries:**
