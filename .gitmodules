@@ -10,3 +10,6 @@
 [submodule "libs/riscure-models"]
 	path = libs/riscure-models
 	url = https://github.com/sealablab/riscure-models.git
+[submodule "libs/bpd-tiny-vhdl"]
+	path = libs/bpd-tiny-vhdl
+	url = https://github.com/sealablab/bpd-vhdl-tiny
